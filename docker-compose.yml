@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -24,8 +23,34 @@ services:
     networks:
       - golang_api_network
 
+  mongodb:
+    image: mongo:7.0
+    container_name: golang_api_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: life_tracker
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - golang_api_network
+
 volumes:
   postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  mongodb_config:
     driver: local
 
 networks:
