@@ -8,14 +8,22 @@ import (
 )
 
 type Config struct {
-	Port             string
-	GinMode          string
-	DBHost           string
-	DBPort           string
-	DBUser           string
-	DBPassword       string
-	DBName           string
-	DBSSLMode        string
+	Port    string
+	GinMode string
+
+	// PostgreSQL Config
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBSSLMode  string
+
+	// MongoDB Config
+	MongoURI      string
+	MongoDatabase string
+
+	// JWT Config
 	JWTSecret        string
 	JWTExpiry        string
 	JWTRefreshExpiry string
@@ -28,14 +36,22 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:             getEnv("PORT", "8080"),
-		GinMode:          getEnv("GIN_MODE", "debug"),
-		DBHost:           getEnv("DB_HOST", "localhost"),
-		DBPort:           getEnv("DB_PORT", "5432"),
-		DBUser:           getEnv("DB_USER", "postgres"),
-		DBPassword:       getEnv("DB_PASSWORD", "password"),
-		DBName:           getEnv("DB_NAME", "golang_api"),
-		DBSSLMode:        getEnv("DB_SSLMODE", "disable"),
+		Port:    getEnv("PORT", "8080"),
+		GinMode: getEnv("GIN_MODE", "debug"),
+
+		// PostgreSQL
+		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBPort:     getEnv("DB_PORT", "5432"),
+		DBUser:     getEnv("DB_USER", "postgres"),
+		DBPassword: getEnv("DB_PASSWORD", "password"),
+		DBName:     getEnv("DB_NAME", "golang_api"),
+		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+
+		// MongoDB
+		MongoURI:      getEnv("MONGO_URI", "mongodb://admin:password@localhost:27017"),
+		MongoDatabase: getEnv("MONGO_DATABASE", "life_tracker"),
+
+		// JWT
 		JWTSecret:        getEnv("JWT_SECRET", "default-secret-change-this"),
 		JWTExpiry:        getEnv("JWT_EXPIRY", "24h"),
 		JWTRefreshExpiry: getEnv("JWT_REFRESH_EXPIRY", "168h"),
