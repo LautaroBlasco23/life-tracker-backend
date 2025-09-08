@@ -1,37 +1,40 @@
 package database
 
 import (
-	"fmt"
-	"life-tracker-backend/internal/auth/model"
 	"life-tracker-backend/internal/config"
+	"log"
 
-	userModel "life-tracker-backend/internal/user/model"
-
-	"gorm.io/driver/postgres"
+	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
-func Initialize(cfg *config.Config) (*gorm.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
-		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode,
-	)
+// DatabaseConnections holds both database connections
+type DatabaseConnections struct {
+	PostgreSQL *gorm.DB
+	MongoDB    *mongo.Database
+}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
+// Initialize sets up both PostgreSQL and MongoDB connections
+func Initialize(cfg *config.Config) (*DatabaseConnections, error) {
+	// Initialize PostgreSQL
+	postgresDB, err := InitializePostgreSQL(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// Auto-migrate models
-	if err := db.AutoMigrate(
-		&userModel.User{},
-		&model.Auth{},
-	); err != nil {
+	// Initialize MongoDB
+	mongoDB, err := InitializeMongoDB(cfg)
+	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	// Create MongoDB indexes for better performance
+	if err := CreateMongoIndexes(mongoDB); err != nil {
+		log.Println("Failed to create MongoDB indexes:", err)
+	}
+
+	return &DatabaseConnections{
+		PostgreSQL: postgresDB,
+		MongoDB:    mongoDB,
+	}, nil
 }
