@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"life-tracker-backend/internal/user/model"
-	"life-tracker-backend/internal/user/service"
+	"life-tracker-backend/internal/domain/user/dto"
+	"life-tracker-backend/internal/domain/user/service"
 	"net/http"
 	"strconv"
 
@@ -39,7 +39,7 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 func (c *UserController) UpdateProfile(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
 
-	var req model.UpdateUserRequest
+	var req dto.UpdateUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",

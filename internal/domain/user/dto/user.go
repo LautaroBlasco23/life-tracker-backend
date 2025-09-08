@@ -1,21 +1,6 @@
-package model
+package dto
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-)
-
-type User struct {
-	ID            uint           `json:"id" gorm:"primaryKey"`
-	FirstName     string         `json:"firstName" gorm:"not null"`
-	LastName      string         `json:"lastName" gorm:"not null"`
-	Email         string         `json:"email" gorm:"uniqueIndex;not null"`
-	ProfilePicURL *string        `json:"profilePicUrl,omitempty"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
-}
+import "time"
 
 type CreateUserRequest struct {
 	FirstName     string `json:"firstName" binding:"required,min=2,max=50"`
@@ -39,16 +24,4 @@ type UserResponse struct {
 	ProfilePicURL *string   `json:"profilePicUrl,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
-}
-
-func (u *User) ToResponse() *UserResponse {
-	return &UserResponse{
-		ID:            u.ID,
-		FirstName:     u.FirstName,
-		LastName:      u.LastName,
-		Email:         u.Email,
-		ProfilePicURL: u.ProfilePicURL,
-		CreatedAt:     u.CreatedAt,
-		UpdatedAt:     u.UpdatedAt,
-	}
 }

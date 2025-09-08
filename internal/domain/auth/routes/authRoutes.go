@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"life-tracker-backend/internal/auth/controller"
-	"life-tracker-backend/internal/auth/service"
 	"life-tracker-backend/internal/config"
+	"life-tracker-backend/internal/domain/auth/controller"
+	"life-tracker-backend/internal/domain/auth/service"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

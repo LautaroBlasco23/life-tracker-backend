@@ -2,11 +2,12 @@ package service
 
 import (
 	"errors"
-	"life-tracker-backend/internal/auth/model"
 	"life-tracker-backend/internal/config"
+	"life-tracker-backend/internal/domain/auth/dto"
+	"life-tracker-backend/internal/domain/auth/model"
 	"time"
 
-	userModel "life-tracker-backend/internal/user/model"
+	userModel "life-tracker-backend/internal/domain/user/model"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -32,7 +33,7 @@ func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
 	}
 }
 
-func (s *AuthService) Register(req *model.RegisterRequest) (*model.TokenResponse, error) {
+func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, error) {
 	// Check if user already exists
 	var existingAuth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&existingAuth).Error; err == nil {
@@ -78,7 +79,7 @@ func (s *AuthService) Register(req *model.RegisterRequest) (*model.TokenResponse
 	return s.generateTokens(user.ID, user.Email)
 }
 
-func (s *AuthService) Login(req *model.LoginRequest) (*model.TokenResponse, error) {
+func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, error) {
 	var auth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&auth).Error; err != nil {
 		return nil, errors.New("invalid credentials")
@@ -92,7 +93,7 @@ func (s *AuthService) Login(req *model.LoginRequest) (*model.TokenResponse, erro
 	return s.generateTokens(auth.UserID, auth.Email)
 }
 
-func (s *AuthService) RefreshToken(refreshToken string) (*model.TokenResponse, error) {
+func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, error) {
 	claims, err := s.validateToken(refreshToken)
 	if err != nil {
 		return nil, errors.New("invalid refresh token")
@@ -105,7 +106,7 @@ func (s *AuthService) RefreshToken(refreshToken string) (*model.TokenResponse, e
 	return s.generateTokens(claims.UserID, claims.Email)
 }
 
-func (s *AuthService) generateTokens(userID uint, email string) (*model.TokenResponse, error) {
+func (s *AuthService) generateTokens(userID uint, email string) (*dto.TokenResponse, error) {
 	// Parse expiry duration
 	accessExpiry, _ := time.ParseDuration(s.cfg.JWTExpiry)
 	refreshExpiry, _ := time.ParseDuration(s.cfg.JWTRefreshExpiry)
@@ -148,7 +149,7 @@ func (s *AuthService) generateTokens(userID uint, email string) (*model.TokenRes
 		return nil, err
 	}
 
-	return &model.TokenResponse{
+	return &dto.TokenResponse{
 		AccessToken:  accessTokenString,
 		RefreshToken: refreshTokenString,
 		ExpiresIn:    int64(accessExpiry.Seconds()),

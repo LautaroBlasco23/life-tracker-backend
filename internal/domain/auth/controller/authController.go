@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"life-tracker-backend/internal/auth/model"
-	"life-tracker-backend/internal/auth/service"
+	"life-tracker-backend/internal/domain/auth/dto"
+	"life-tracker-backend/internal/domain/auth/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ func NewAuthController(authService *service.AuthService) *AuthController {
 }
 
 func (c *AuthController) Register(ctx *gin.Context) {
-	var req model.RegisterRequest
+	var req dto.RegisterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
@@ -43,7 +43,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 }
 
 func (c *AuthController) Login(ctx *gin.Context) {
-	var req model.LoginRequest
+	var req dto.LoginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
@@ -67,7 +67,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 }
 
 func (c *AuthController) RefreshToken(ctx *gin.Context) {
-	var req model.RefreshRequest
+	var req dto.RefreshRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",

@@ -2,7 +2,8 @@ package service
 
 import (
 	"errors"
-	"life-tracker-backend/internal/user/model"
+	"life-tracker-backend/internal/domain/user/dto"
+	"life-tracker-backend/internal/domain/user/model"
 
 	"gorm.io/gorm"
 )
@@ -17,7 +18,7 @@ func NewUserService(db *gorm.DB) *UserService {
 	}
 }
 
-func (s *UserService) GetProfile(userID uint) (*model.UserResponse, error) {
+func (s *UserService) GetProfile(userID uint) (*dto.UserResponse, error) {
 	var user model.User
 	if err := s.db.First(&user, userID).Error; err != nil {
 		return nil, errors.New("user not found")
@@ -26,7 +27,7 @@ func (s *UserService) GetProfile(userID uint) (*model.UserResponse, error) {
 	return user.ToResponse(), nil
 }
 
-func (s *UserService) UpdateProfile(userID uint, req *model.UpdateUserRequest) (*model.UserResponse, error) {
+func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	var user model.User
 	if err := s.db.First(&user, userID).Error; err != nil {
 		return nil, errors.New("user not found")
@@ -58,13 +59,13 @@ func (s *UserService) UpdateProfile(userID uint, req *model.UpdateUserRequest) (
 	return user.ToResponse(), nil
 }
 
-func (s *UserService) GetAllUsers() ([]*model.UserResponse, error) {
+func (s *UserService) GetAllUsers() ([]*dto.UserResponse, error) {
 	var users []model.User
 	if err := s.db.Find(&users).Error; err != nil {
 		return nil, errors.New("failed to fetch users")
 	}
 
-	var responses []*model.UserResponse
+	var responses []*dto.UserResponse
 	for _, user := range users {
 		responses = append(responses, user.ToResponse())
 	}
