@@ -295,6 +295,426 @@
 			"description": "User management endpoints for profile operations and user CRUD"
 		},
 		{
+			"name": "Activities",
+			"item": [
+				{
+					"name": "Create Activity",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('activity_id', response.data.id);",
+									"    console.log('Activity ID saved to environment:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Morning Exercise\",\n    \"description\": \"30 minutes of cardio workout\",\n    \"completionAmount\": 1,\n    \"frequency\": \"daily\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities"
+							]
+						},
+						"description": "Create a new activity"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Weekly Activity",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Gym Workout\",\n    \"description\": \"Strength training at the gym\",\n    \"completionAmount\": 1,\n    \"frequency\": \"weekly\",\n    \"dayFrequency\": \"[\\\"monday\\\", \\\"wednesday\\\", \\\"friday\\\"]\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities"
+							]
+						},
+						"description": "Create a weekly activity with specific days"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Activities",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities"
+							]
+						},
+						"description": "Get all activities for the authenticated user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Activities (Include Inactive)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities?include_inactive=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities"
+							],
+							"query": [
+								{
+									"key": "include_inactive",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Get all activities including inactive ones"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Activity by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}"
+							]
+						},
+						"description": "Get a specific activity by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Activity",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated Morning Exercise\",\n    \"description\": \"45 minutes of cardio and strength training\",\n    \"completionAmount\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}"
+							]
+						},
+						"description": "Update an existing activity"
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Activity",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"isActive\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}"
+							]
+						},
+						"description": "Deactivate an activity"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Activity",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}"
+							]
+						},
+						"description": "Delete an activity permanently"
+					},
+					"response": []
+				},
+				{
+					"name": "Record Activity Completion",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Great workout today! Felt energized.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}/record",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}",
+								"record"
+							]
+						},
+						"description": "Record a completion for an activity"
+					},
+					"response": []
+				},
+				{
+					"name": "Record Activity Completion with Date",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"completionDate\": \"2025-09-06T08:00:00Z\",\n    \"notes\": \"Yesterday's workout - logging late\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}/record",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}",
+								"record"
+							]
+						},
+						"description": "Record a completion for an activity with specific date"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Activity Records",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}/records",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}",
+								"records"
+							]
+						},
+						"description": "Get completion records for an activity"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Activity Records (Limited)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}/records?limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}",
+								"records"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get limited number of completion records"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Activity Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/activities/{{activity_id}}/stats",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"activities",
+								"{{activity_id}}",
+								"stats"
+							]
+						},
+						"description": "Get statistics for an activity (total completions, streaks, etc.)"
+					},
+					"response": []
+				}
+			],
+			"description": "Activity management endpoints for creating, tracking, and managing user activities"
+		},
+		{
 			"name": "Health Check",
 			"item": [
 				{
