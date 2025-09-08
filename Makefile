@@ -34,11 +34,7 @@ dev-watch:
 		echo "Installing air..."; \
 		go install github.com/air-verse/air@latest; \
 	fi
-	@if [ -x "$(shell go env GOPATH)/bin/air" ]; then \
-		$(shell go env GOPATH)/bin/air; \
-	else \
-		go run github.com/air-verse/air@latest; \
-	fi
+	$(shell go env GOPATH)/bin/air -c .air.toml
 
 # Database commands (manages both PostgreSQL and MongoDB)
 db-up:
