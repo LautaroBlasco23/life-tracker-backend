@@ -1,5 +1,5 @@
 # Golang REST API Makefile
-.PHONY: dev dev-watch db-up db-down db-reset mongo-up mongo-down mongo-reset db-all-up db-all-down db-all-reset help
+.PHONY: dev dev-watch db-up db-down db-reset help
 
 # Default target
 help:
@@ -8,19 +8,9 @@ help:
 	@echo "  dev-watch       - Run with hot reload (restarts on file changes)"
 	@echo ""
 	@echo "Database Commands:"
-	@echo "  db-up           - Start PostgreSQL database container"
-	@echo "  db-down         - Stop PostgreSQL database container"
-	@echo "  db-reset        - Reset PostgreSQL database (stop, remove, start fresh)"
-	@echo ""
-	@echo "MongoDB Commands:"
-	@echo "  mongo-up        - Start MongoDB and Mongo Express containers"
-	@echo "  mongo-down      - Stop MongoDB and Mongo Express containers"
-	@echo "  mongo-reset     - Reset MongoDB database (stop, remove, start fresh)"
-	@echo ""
-	@echo "All Databases Commands:"
-	@echo "  db-all-up       - Start all databases (PostgreSQL + MongoDB)"
-	@echo "  db-all-down     - Stop all databases"
-	@echo "  db-all-reset    - Reset all databases"
+	@echo "  db-up           - Start PostgreSQL and MongoDB database containers"
+	@echo "  db-down         - Stop all database containers"
+	@echo "  db-reset        - Reset databases (stop, remove volumes, start fresh)"
 
 # Run the application in development mode
 dev:
