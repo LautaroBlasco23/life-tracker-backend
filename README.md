@@ -2,7 +2,7 @@
 
 A production-ready REST API built with Go, featuring JWT authentication, clean architecture, and comprehensive CRUD operations.
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 project/
@@ -39,7 +39,7 @@ project/
 └── README.md
 ```
 
-## 🚀 Features
+## Features
 
 - **Clean Architecture**: Organized by feature modules with clear separation of concerns
 - **JWT Authentication**: Secure token-based authentication with refresh tokens
@@ -53,7 +53,7 @@ project/
 - **Soft Deletes**: GORM soft delete support
 - **Auto Migration**: Automatic database schema migration
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Go 1.21+**
 - **Gin** - HTTP web framework
@@ -63,13 +63,13 @@ project/
 - **Bcrypt** - Password hashing
 - **Godotenv** - Environment variable management
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Go 1.21 or higher
 - PostgreSQL database
 - Git
 
-## ⚡ Quick Start
+## Quick Start
 
 ### 1. Clone the repository
 ```bash
@@ -95,7 +95,7 @@ go run cmd/main/main.go
 
 The server will start on the port specified in your `.env` file (default: 8080).
 
-## 📚 API Endpoints
+## API Endpoints
 
 ### Authentication Endpoints
 | Method | Endpoint | Description |
@@ -118,7 +118,7 @@ The server will start on the port specified in your `.env` file (default: 8080).
 |--------|----------|-------------|
 | GET | `/health` | Health check endpoint |
 
-## 📖 API Usage Examples
+## API Usage Examples
 
 ### Register a new user
 ```bash
@@ -168,7 +168,7 @@ curl -X POST http://localhost:8080/api/v1/auth/refresh \
   }'
 ```
 
-## 🔧 Development
+## Development
 
 ### Hot Reload with Air
 1. Install Air:
@@ -186,7 +186,7 @@ curl -X POST http://localhost:8080/api/v1/auth/refresh \
 go test ./...
 ```
 
-## 🏗️ Architecture Benefits
+## Architecture Benefits
 
 ### Separation of Concerns
 - **Models**: Data structures and database schemas
@@ -206,7 +206,7 @@ Each layer can be tested independently:
 - Clear boundaries between components
 - Easy to maintain and refactor
 
-## 🔒 Security Features
+## Security Features
 
 - **Password Hashing**: Using bcrypt with salt
 - **JWT Tokens**: Secure token-based authentication
@@ -215,7 +215,7 @@ Each layer can be tested independently:
 - **Input Validation**: Request validation and sanitization
 - **CORS Protection**: Cross-Origin Resource Sharing configuration
 
-## 📊 Database Schema
+## Database Schema
 
 ### Users Table
 - `id` (Primary Key)
@@ -236,7 +236,7 @@ Each layer can be tested independently:
 - `updated_at`
 - `deleted_at` (Soft Delete)
 
-## 🚀 Production Recommendations
+## Production Recommendations
 
 ### Security
 - Use strong JWT secrets
@@ -257,7 +257,7 @@ Each layer can be tested independently:
 - Configure environment-specific settings
 - Add health checks and monitoring
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -265,11 +265,11 @@ Each layer can be tested independently:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Gin Web Framework](https://gin-gonic.com/)
 - [GORM](https://gorm.io/)
