@@ -38,6 +38,23 @@ const (
 	Sunday    DayOfWeek = "sunday"
 )
 
+type DayTime string
+
+const (
+	DayTimeMorning   DayTime = "morning"
+	DayTimeAfternoon DayTime = "afternoon"
+	DayTimeEvening   DayTime = "evening"
+)
+
+func (dt *DayTime) Scan(value interface{}) error {
+	*dt = DayTime(value.(string))
+	return nil
+}
+
+func (dt DayTime) Value() (driver.Value, error) {
+	return string(dt), nil
+}
+
 type Activity struct {
 	ID               uint           `json:"id" gorm:"primaryKey"`
 	UserID           uint           `json:"userId" gorm:"not null;index"`
@@ -46,6 +63,7 @@ type Activity struct {
 	CompletionAmount int            `json:"completionAmount" gorm:"not null;default:1"`
 	Frequency        Frequency      `json:"frequency" gorm:"not null"`
 	DayFrequency     string         `json:"dayFrequency,omitempty" gorm:"type:text"` // JSON array of days for weekly activities
+	DayTime          DayTime        `json:"dayTime" gorm:"not null;default:'morning'"`
 	IsActive         bool           `json:"isActive" gorm:"default:true"`
 	CreatedAt        time.Time      `json:"createdAt"`
 	UpdatedAt        time.Time      `json:"updatedAt"`
@@ -61,8 +79,18 @@ func (a *Activity) ToResponse() *dto.ActivityResponse {
 		CompletionAmount: a.CompletionAmount,
 		Frequency:        string(a.Frequency),
 		DayFrequency:     a.DayFrequency,
+		DayTime:          string(a.DayTime),
 		IsActive:         a.IsActive,
 		CreatedAt:        a.CreatedAt,
 		UpdatedAt:        a.UpdatedAt,
+		TodayCompletions: 0,     // Will be set by service
+		IsCompletedToday: false, // Will be set by service
 	}
+}
+
+func (a *Activity) ToResponseWithCompletions(todayCompletions int) *dto.ActivityResponse {
+	response := a.ToResponse()
+	response.TodayCompletions = todayCompletions
+	response.IsCompletedToday = todayCompletions >= a.CompletionAmount
+	return response
 }

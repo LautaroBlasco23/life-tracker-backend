@@ -247,3 +247,27 @@ func (c *ActivityController) GetActivityStats(ctx *gin.Context) {
 		"data":    stats,
 	})
 }
+
+func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
+	userID := ctx.MustGet("userID").(uint)
+
+	idParam := ctx.Param("id")
+	activityID, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid activity ID",
+		})
+		return
+	}
+
+	if err := c.activityService.RevertLastCompletion(userID, uint(activityID)); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Latest completion reverted successfully",
+	})
+}

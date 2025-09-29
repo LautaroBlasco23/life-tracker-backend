@@ -28,7 +28,6 @@ func NewActivityService(db *gorm.DB, mongoDB *mongo.Database) *ActivityService {
 	}
 }
 
-// Activity CRUD operations
 func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityRequest) (*dto.ActivityResponse, error) {
 	// Validate day frequency for weekly activities
 	if req.Frequency == "weekly" && req.DayFrequency != "" {
@@ -44,6 +43,7 @@ func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityReq
 		CompletionAmount: req.CompletionAmount,
 		Frequency:        model.Frequency(req.Frequency),
 		DayFrequency:     req.DayFrequency,
+		DayTime:          model.DayTime(req.DayTime),
 		IsActive:         true,
 	}
 
@@ -56,8 +56,8 @@ func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityReq
 
 func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) ([]*dto.ActivityResponse, error) {
 	var activities []model.Activity
-	query := s.db.Where("user_id = ?", userID)
 
+	query := s.db.Where("user_id = ?", userID)
 	if !includeInactive {
 		query = query.Where("is_active = ?", true)
 	}
@@ -66,9 +66,18 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) (
 		return nil, errors.New("failed to fetch activities")
 	}
 
+	// Get today's completion counts for all activities
+	todayCompletions, err := s.getTodayCompletions(userID)
+	if err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("Warning: failed to fetch today's completions: %v\n", err)
+		todayCompletions = make(map[uint]int)
+	}
+
 	var responses []*dto.ActivityResponse
 	for _, activity := range activities {
-		responses = append(responses, activity.ToResponse())
+		completions := todayCompletions[activity.ID]
+		responses = append(responses, activity.ToResponseWithCompletions(completions))
 	}
 
 	return responses, nil
@@ -114,6 +123,9 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 	}
 	if req.DayFrequency != nil {
 		updates["day_frequency"] = *req.DayFrequency
+	}
+	if req.DayTime != nil {
+		updates["day_time"] = *req.DayTime // ADD THIS LINE
 	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
@@ -247,6 +259,51 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 	return stats, nil
 }
 
+func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
+	// Verify activity exists and belongs to user
+	var activity model.Activity
+	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
+		return errors.New("activity not found")
+	}
+
+	collection := s.mongoDB.Collection("activity_records")
+
+	// Get today's date range
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	// Find the most recent completion record for today
+	filter := bson.M{
+		"activityId": activityID,
+		"userId":     userID,
+		"completionDate": bson.M{
+			"$gte": startOfDay,
+			"$lt":  endOfDay,
+		},
+	}
+
+	// Sort by completion date descending to get the most recent
+	opts := options.FindOne().SetSort(bson.D{{Key: "completionDate", Value: -1}})
+
+	var record model.ActivityRecord
+	err := collection.FindOne(context.Background(), filter, opts).Decode(&record)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return errors.New("no completion found to revert")
+		}
+		return errors.New("failed to find completion record")
+	}
+
+	// Delete the most recent completion record
+	_, err = collection.DeleteOne(context.Background(), bson.M{"_id": record.ID})
+	if err != nil {
+		return errors.New("failed to revert completion")
+	}
+
+	return nil
+}
+
 // Helper methods
 func (s *ActivityService) validateDayFrequency(dayFrequency string) error {
 	var days []string
@@ -266,4 +323,53 @@ func (s *ActivityService) validateDayFrequency(dayFrequency string) error {
 	}
 
 	return nil
+}
+
+// Helper method to get today's completion counts for all user activities
+func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error) {
+	collection := s.mongoDB.Collection("activity_records")
+
+	// Get start and end of today in local time
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	// MongoDB aggregation pipeline to count completions per activity for today
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"userId": userID,
+				"completionDate": bson.M{
+					"$gte": startOfDay,
+					"$lt":  endOfDay,
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id":   "$activityId",
+				"count": bson.M{"$sum": 1},
+			},
+		},
+	}
+
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	completions := make(map[uint]int)
+	for cursor.Next(context.Background()) {
+		var result struct {
+			ID    uint `bson:"_id"`
+			Count int  `bson:"count"`
+		}
+		if err := cursor.Decode(&result); err != nil {
+			continue // Skip invalid results
+		}
+		completions[result.ID] = result.Count
+	}
+
+	return completions, nil
 }

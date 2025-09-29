@@ -25,6 +25,7 @@ func RegisterActivityRoutes(router *gin.RouterGroup, db *gorm.DB, mongoDB *mongo
 		// Activity Records
 		activityGroup.POST("/:id/record", activityController.RecordActivity)
 		activityGroup.GET("/:id/records", activityController.GetActivityRecords)
+		activityGroup.DELETE("/:id/revert", activityController.RevertLastCompletion)
 		activityGroup.GET("/:id/stats", activityController.GetActivityStats)
 	}
 }

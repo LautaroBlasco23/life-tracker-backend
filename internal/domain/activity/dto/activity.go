@@ -8,6 +8,7 @@ type CreateActivityRequest struct {
 	CompletionAmount int    `json:"completionAmount" binding:"required,min=1"`
 	Frequency        string `json:"frequency" binding:"required,oneof=daily weekly monthly oneTime"`
 	DayFrequency     string `json:"dayFrequency,omitempty"` // JSON array: ["monday", "wednesday", "friday"]
+	DayTime          string `json:"dayTime" binding:"required,oneof=morning afternoon evening"`
 }
 
 type UpdateActivityRequest struct {
@@ -16,6 +17,7 @@ type UpdateActivityRequest struct {
 	CompletionAmount *int    `json:"completionAmount,omitempty" binding:"omitempty,min=1"`
 	Frequency        *string `json:"frequency,omitempty" binding:"omitempty,oneof=daily weekly monthly oneTime"`
 	DayFrequency     *string `json:"dayFrequency,omitempty"`
+	DayTime          *string `json:"dayTime,omitempty" binding:"omitempty,oneof=morning afternoon evening"`
 	IsActive         *bool   `json:"isActive,omitempty"`
 }
 
@@ -27,9 +29,12 @@ type ActivityResponse struct {
 	CompletionAmount int       `json:"completionAmount"`
 	Frequency        string    `json:"frequency"`
 	DayFrequency     string    `json:"dayFrequency,omitempty"`
+	DayTime          string    `json:"dayTime"`
 	IsActive         bool      `json:"isActive"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
+	TodayCompletions int       `json:"todayCompletions"`
+	IsCompletedToday bool      `json:"isCompletedToday"`
 }
 
 // Activity completion DTOs
