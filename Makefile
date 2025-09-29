@@ -22,6 +22,8 @@ help:
 	@echo "  docker-logs-api - Show API logs only"
 	@echo "  docker-restart  - Restart the API service"
 	@echo "  docker-clean    - Clean up containers, networks, and volumes"
+	@echo "  docker-api-only - Start only the API container (databases must be running)"
+	@echo "  reboot          - Complete restart: stop all, remove data, rebuild, start fresh"
 
 # Local development commands
 dev:
@@ -102,6 +104,31 @@ docker-clean:
 	docker-compose down -v --remove-orphans
 	docker system prune -f
 	@echo "✅ Docker cleanup complete!"
+
+docker-api-only:
+	@echo "Starting only the API container..."
+	docker-compose up -d api
+	@echo "✅ API container started!"
+	@echo "🚀 API: http://localhost:8080"
+	@echo "🏥 Health check: http://localhost:8080/health"
+
+reboot:
+	@echo "🔄 Complete system reboot: stopping all services..."
+	docker-compose down -v --remove-orphans
+	@echo "🧹 Cleaning up old containers and volumes..."
+	docker system prune -f
+	@echo "🔨 Rebuilding API image..."
+	docker-compose build api
+	@echo "🚀 Starting all services fresh..."
+	docker-compose up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 25
+	@echo "✅ Complete reboot finished!"
+	@echo "🚀 API: http://localhost:8080"
+	@echo "🏥 Health check: http://localhost:8080/health"
+	@echo "📊 PostgreSQL: localhost:5432"
+	@echo "📊 MongoDB: localhost:27017"
+	@echo "🌐 Mongo Express: http://localhost:8081 (admin/admin123)"
 
 # Quick shortcuts
 up: docker-up
