@@ -67,7 +67,7 @@ func main() {
 	})
 
 	// API routes
-	api := r.Group("/api/v1")
+	api := r.Group("/api")
 	{
 		// Auth routes (public)
 		routes.RegisterAuthRoutes(api, dbs.PostgreSQL, cfg)
