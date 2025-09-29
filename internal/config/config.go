@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -30,10 +31,18 @@ type Config struct {
 }
 
 func Load() *Config {
-	// Load .env file
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
+
+	// Build MongoDB URI from individual components
+	mongoHost := getEnv("MONGO_HOST", "localhost")
+	mongoPort := getEnv("MONGO_PORT", "27017")
+	mongoUser := getEnv("MONGO_USER", "admin")
+	mongoPass := getEnv("MONGO_PASSWORD", "password")
+
+	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%s",
+		mongoUser, mongoPass, mongoHost, mongoPort)
 
 	return &Config{
 		Port:    getEnv("PORT", "8080"),
@@ -48,7 +57,7 @@ func Load() *Config {
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 
 		// MongoDB
-		MongoURI:      getEnv("MONGO_URI", "mongodb://admin:password@localhost:27017"),
+		MongoURI:      mongoURI,
 		MongoDatabase: getEnv("MONGO_DATABASE", "life_tracker"),
 
 		// JWT
