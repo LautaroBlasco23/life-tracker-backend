@@ -33,17 +33,17 @@ func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
 	}
 }
 
-func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, error) {
+func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, uint, error) {
 	// Check if user already exists
 	var existingAuth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&existingAuth).Error; err == nil {
-		return nil, errors.New("user already exists")
+		return nil, 0, errors.New("user already exists")
 	}
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Start transaction
@@ -58,7 +58,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, er
 
 	if err := tx.Create(user).Error; err != nil {
 		tx.Rollback()
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Create auth record
@@ -70,27 +70,37 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, er
 
 	if err := tx.Create(auth).Error; err != nil {
 		tx.Rollback()
-		return nil, err
+		return nil, 0, err
 	}
 
 	tx.Commit()
 
 	// Generate tokens
-	return s.generateTokens(user.ID, user.Email)
+	tokens, err := s.generateTokens(user.ID, user.Email)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tokens, user.ID, nil
 }
 
-func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, error) {
+func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, error) {
 	var auth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&auth).Error; err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, 0, errors.New("invalid credentials")
 	}
 
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, 0, errors.New("invalid credentials")
 	}
 
-	return s.generateTokens(auth.UserID, auth.Email)
+	tokens, err := s.generateTokens(auth.UserID, auth.Email)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tokens, auth.UserID, nil
 }
 
 func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, error) {
