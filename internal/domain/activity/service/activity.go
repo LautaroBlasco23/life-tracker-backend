@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/model"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,8 +29,13 @@ func NewActivityService(db *gorm.DB, mongoDB *mongo.Database) *ActivityService {
 	}
 }
 
+type CompletionMetadata struct {
+	MonthlyCompletions map[uint]time.Time
+	OneTimeCompletions map[uint]time.Time
+	TodayCompletions   map[uint]int
+}
+
 func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityRequest) (*dto.ActivityResponse, error) {
-	// Validate day frequency for weekly activities
 	if req.Frequency == "weekly" && req.DayFrequency != "" {
 		if err := s.validateDayFrequency(req.DayFrequency); err != nil {
 			return nil, err
@@ -66,10 +72,8 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) (
 		return nil, errors.New("failed to fetch activities")
 	}
 
-	// Get today's completion counts for all activities
 	todayCompletions, err := s.getTodayCompletions(userID)
 	if err != nil {
-		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to fetch today's completions: %v\n", err)
 		todayCompletions = make(map[uint]int)
 	}
@@ -78,6 +82,45 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) (
 	for _, activity := range activities {
 		completions := todayCompletions[activity.ID]
 		responses = append(responses, activity.ToResponseWithCompletions(completions))
+	}
+
+	return responses, nil
+}
+
+func (s *ActivityService) GetTodayActivities(userID uint) ([]*dto.ActivityResponse, error) {
+	var activities []model.Activity
+
+	if err := s.db.Where("user_id = ? AND is_active = ?", userID, true).Find(&activities).Error; err != nil {
+		return nil, errors.New("failed to fetch activities")
+	}
+
+	if len(activities) == 0 {
+		return []*dto.ActivityResponse{}, nil
+	}
+
+	activityIDs := make([]uint, len(activities))
+	for i, activity := range activities {
+		activityIDs[i] = activity.ID
+	}
+
+	metadata, err := s.getCompletionMetadata(userID, activityIDs)
+	if err != nil {
+		fmt.Printf("Warning: failed to fetch completion metadata: %v\n", err)
+		metadata = &CompletionMetadata{
+			MonthlyCompletions: make(map[uint]time.Time),
+			OneTimeCompletions: make(map[uint]time.Time),
+			TodayCompletions:   make(map[uint]int),
+		}
+	}
+
+	now := time.Now()
+	var responses []*dto.ActivityResponse
+
+	for _, activity := range activities {
+		if s.shouldShowToday(&activity, metadata, now) {
+			completions := metadata.TodayCompletions[activity.ID]
+			responses = append(responses, activity.ToResponseWithCompletions(completions))
+		}
 	}
 
 	return responses, nil
@@ -101,7 +144,6 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		return nil, errors.New("activity not found")
 	}
 
-	// Build updates map
 	updates := make(map[string]interface{})
 	if req.Title != nil {
 		updates["title"] = *req.Title
@@ -113,7 +155,6 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		updates["completion_amount"] = *req.CompletionAmount
 	}
 	if req.Frequency != nil {
-		// Validate day frequency for weekly activities
 		if *req.Frequency == "weekly" && req.DayFrequency != nil && *req.DayFrequency != "" {
 			if err := s.validateDayFrequency(*req.DayFrequency); err != nil {
 				return nil, err
@@ -125,7 +166,7 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		updates["day_frequency"] = *req.DayFrequency
 	}
 	if req.DayTime != nil {
-		updates["day_time"] = *req.DayTime // ADD THIS LINE
+		updates["day_time"] = *req.DayTime
 	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
@@ -137,7 +178,6 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		}
 	}
 
-	// Fetch updated activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return nil, errors.New("failed to fetch updated activity")
 	}
@@ -156,9 +196,7 @@ func (s *ActivityService) DeleteActivity(userID, activityID uint) error {
 	return nil
 }
 
-// Activity Records operations (MongoDB)
 func (s *ActivityService) RecordActivity(userID, activityID uint, req *dto.RecordActivityRequest) (*dto.ActivityRecordResponse, error) {
-	// Verify activity exists and belongs to user
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return nil, errors.New("activity not found")
@@ -188,7 +226,6 @@ func (s *ActivityService) RecordActivity(userID, activityID uint, req *dto.Recor
 }
 
 func (s *ActivityService) GetActivityRecords(userID, activityID uint, limit int) ([]*dto.ActivityRecordResponse, error) {
-	// Verify activity belongs to user
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return nil, errors.New("activity not found")
@@ -222,7 +259,6 @@ func (s *ActivityService) GetActivityRecords(userID, activityID uint, limit int)
 }
 
 func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.ActivityStatsResponse, error) {
-	// Verify activity belongs to user
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return nil, errors.New("activity not found")
@@ -231,28 +267,23 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 	collection := s.mongoDB.Collection("activity_records")
 	filter := bson.M{"activityId": activityID, "userId": userID}
 
-	// Get total completions
 	totalCompletions, err := collection.CountDocuments(context.Background(), filter)
 	if err != nil {
 		return nil, errors.New("failed to count completions")
 	}
 
-	// Get recent records
 	recentRecords, err := s.GetActivityRecords(userID, activityID, 10)
 	if err != nil {
 		recentRecords = []*dto.ActivityRecordResponse{}
 	}
 
-	// TODO: Implement streak calculations and completion rate
-	// This would require more complex MongoDB aggregation queries
-
 	stats := &dto.ActivityStatsResponse{
 		ActivityID:       activityID,
 		Title:            activity.Title,
 		TotalCompletions: totalCompletions,
-		CurrentStreak:    0, // TODO: Calculate
-		LongestStreak:    0, // TODO: Calculate
-		CompletionRate:   0, // TODO: Calculate
+		CurrentStreak:    0,
+		LongestStreak:    0,
+		CompletionRate:   0,
 		RecentRecords:    recentRecords,
 	}
 
@@ -260,7 +291,6 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 }
 
 func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
-	// Verify activity exists and belongs to user
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return errors.New("activity not found")
@@ -268,12 +298,10 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
 
 	collection := s.mongoDB.Collection("activity_records")
 
-	// Get today's date range
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	// Find the most recent completion record for today
 	filter := bson.M{
 		"activityId": activityID,
 		"userId":     userID,
@@ -283,7 +311,6 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
 		},
 	}
 
-	// Sort by completion date descending to get the most recent
 	opts := options.FindOne().SetSort(bson.D{{Key: "completionDate", Value: -1}})
 
 	var record model.ActivityRecord
@@ -295,7 +322,6 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
 		return errors.New("failed to find completion record")
 	}
 
-	// Delete the most recent completion record
 	_, err = collection.DeleteOne(context.Background(), bson.M{"_id": record.ID})
 	if err != nil {
 		return errors.New("failed to revert completion")
@@ -304,7 +330,6 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
 	return nil
 }
 
-// Helper methods
 func (s *ActivityService) validateDayFrequency(dayFrequency string) error {
 	var days []string
 	if err := json.Unmarshal([]byte(dayFrequency), &days); err != nil {
@@ -325,16 +350,13 @@ func (s *ActivityService) validateDayFrequency(dayFrequency string) error {
 	return nil
 }
 
-// Helper method to get today's completion counts for all user activities
 func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error) {
 	collection := s.mongoDB.Collection("activity_records")
 
-	// Get start and end of today in local time
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	// MongoDB aggregation pipeline to count completions per activity for today
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{
@@ -366,10 +388,127 @@ func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error)
 			Count int  `bson:"count"`
 		}
 		if err := cursor.Decode(&result); err != nil {
-			continue // Skip invalid results
+			continue
 		}
 		completions[result.ID] = result.Count
 	}
 
 	return completions, nil
+}
+
+func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint) (*CompletionMetadata, error) {
+	collection := s.mongoDB.Collection("activity_records")
+
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"userId":     userID,
+				"activityId": bson.M{"$in": activityIDs},
+			},
+		},
+		{
+			"$sort": bson.M{"completionDate": -1},
+		},
+		{
+			"$group": bson.M{
+				"_id":                "$activityId",
+				"latestCompletion":   bson.M{"$first": "$completionDate"},
+				"monthlyCompletion":  bson.M{"$first": bson.M{"$cond": bson.A{bson.M{"$gte": bson.A{"$completionDate", startOfMonth}}, "$completionDate", nil}}},
+				"todayCount": bson.M{
+					"$sum": bson.M{
+						"$cond": bson.A{
+							bson.M{
+								"$and": bson.A{
+									bson.M{"$gte": bson.A{"$completionDate", startOfDay}},
+									bson.M{"$lt": bson.A{"$completionDate", endOfDay}},
+								},
+							},
+							1,
+							0,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	metadata := &CompletionMetadata{
+		MonthlyCompletions: make(map[uint]time.Time),
+		OneTimeCompletions: make(map[uint]time.Time),
+		TodayCompletions:   make(map[uint]int),
+	}
+
+	for cursor.Next(context.Background()) {
+		var result struct {
+			ID                uint       `bson:"_id"`
+			LatestCompletion  time.Time  `bson:"latestCompletion"`
+			MonthlyCompletion *time.Time `bson:"monthlyCompletion"`
+			TodayCount        int        `bson:"todayCount"`
+		}
+		if err := cursor.Decode(&result); err != nil {
+			continue
+		}
+
+		metadata.OneTimeCompletions[result.ID] = result.LatestCompletion
+		if result.MonthlyCompletion != nil {
+			metadata.MonthlyCompletions[result.ID] = *result.MonthlyCompletion
+		}
+		metadata.TodayCompletions[result.ID] = result.TodayCount
+	}
+
+	return metadata, nil
+}
+
+func (s *ActivityService) shouldShowToday(activity *model.Activity, metadata *CompletionMetadata, now time.Time) bool {
+	switch activity.Frequency {
+	case model.FrequencyDaily:
+		return true
+
+	case model.FrequencyWeekly:
+		if activity.DayFrequency == "" {
+			return false
+		}
+
+		var days []string
+		if err := json.Unmarshal([]byte(activity.DayFrequency), &days); err != nil {
+			return false
+		}
+
+		currentWeekday := strings.ToLower(now.Weekday().String())
+		for _, day := range days {
+			if strings.ToLower(day) == currentWeekday {
+				return true
+			}
+		}
+		return false
+
+	case model.FrequencyMonthly:
+		_, completedThisMonth := metadata.MonthlyCompletions[activity.ID]
+		return !completedThisMonth
+
+	case model.FrequencyOneTime:
+		lastCompletion, hasCompletion := metadata.OneTimeCompletions[activity.ID]
+		if !hasCompletion {
+			return true
+		}
+
+		startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		endOfToday := startOfToday.Add(24 * time.Hour)
+
+		return lastCompletion.After(startOfToday) && lastCompletion.Before(endOfToday)
+
+	default:
+		return false
+	}
 }

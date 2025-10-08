@@ -15,17 +15,16 @@ func RegisterActivityRoutes(router *gin.RouterGroup, db *gorm.DB, mongoDB *mongo
 
 	activityGroup := router.Group("/activities")
 	{
-		// Activity CRUD
 		activityGroup.POST("", activityController.CreateActivity)
 		activityGroup.GET("", activityController.GetUserActivities)
+		activityGroup.GET("/today", activityController.GetTodayActivities)
 		activityGroup.GET("/:id", activityController.GetActivity)
 		activityGroup.PUT("/:id", activityController.UpdateActivity)
 		activityGroup.DELETE("/:id", activityController.DeleteActivity)
 
-		// Activity Records
 		activityGroup.POST("/:id/record", activityController.RecordActivity)
 		activityGroup.GET("/:id/records", activityController.GetActivityRecords)
-		activityGroup.DELETE("/:id/revert", activityController.RevertLastCompletion)
 		activityGroup.GET("/:id/stats", activityController.GetActivityStats)
+		activityGroup.DELETE("/:id/revert", activityController.RevertLastCompletion)
 	}
 }

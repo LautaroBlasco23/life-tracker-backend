@@ -19,7 +19,6 @@ func NewActivityController(activityService *service.ActivityService) *ActivityCo
 	}
 }
 
-// Activity CRUD endpoints
 func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
 
@@ -61,6 +60,24 @@ func (c *ActivityController) GetUserActivities(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Activities retrieved successfully",
+		"data":    activities,
+		"count":   len(activities),
+	})
+}
+
+func (c *ActivityController) GetTodayActivities(ctx *gin.Context) {
+	userID := ctx.MustGet("userID").(uint)
+
+	activities, err := c.activityService.GetTodayActivities(userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Today's activities retrieved successfully",
 		"data":    activities,
 		"count":   len(activities),
 	})
@@ -151,7 +168,6 @@ func (c *ActivityController) DeleteActivity(ctx *gin.Context) {
 	})
 }
 
-// Activity Records endpoints
 func (c *ActivityController) RecordActivity(ctx *gin.Context) {
 	userID := ctx.MustGet("userID").(uint)
 
@@ -199,8 +215,7 @@ func (c *ActivityController) GetActivityRecords(ctx *gin.Context) {
 		return
 	}
 
-	// Get limit from query params
-	limit := 50 // default
+	limit := 50
 	if limitParam := ctx.Query("limit"); limitParam != "" {
 		if l, err := strconv.Atoi(limitParam); err == nil && l > 0 {
 			limit = l
