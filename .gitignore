@@ -45,9 +45,6 @@ tmp/
 logs/
 *.log
 
-# Air live reload
-.air.toml
-
 # Database
 *.db
 *.sqlite
