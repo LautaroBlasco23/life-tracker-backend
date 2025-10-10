@@ -1,7 +1,5 @@
-# Golang REST API Makefile
 .PHONY: dev dev-watch db-up db-down db-reset docker-up docker-down docker-build docker-logs help
 
-# Default target
 help:
 	@echo "Available commands:"
 	@echo ""
@@ -23,9 +21,9 @@ help:
 	@echo "  docker-restart  - Restart the API service"
 	@echo "  docker-clean    - Clean up containers, networks, and volumes"
 	@echo "  docker-api-only - Start only the API container (databases must be running)"
+	@echo "  update-deploy   - Rebuild and redeploy API with cleanup (keeps databases)"
 	@echo "  reboot          - Complete restart: stop all, remove data, rebuild, start fresh"
 
-# Local development commands
 dev:
 	@echo "Starting Go application locally..."
 	go run cmd/main/main.go
@@ -38,7 +36,6 @@ dev-watch:
 	fi
 	$(shell go env GOPATH)/bin/air -c .air.toml
 
-# Database only commands (for local development)
 db-up:
 	@echo "Starting databases only..."
 	docker-compose up -d postgres mongodb
@@ -63,7 +60,6 @@ db-reset:
 	@sleep 15
 	@echo "✅ Databases reset complete!"
 
-# Docker commands (full stack)
 docker-build:
 	@echo "Building API Docker image..."
 	docker-compose build api
@@ -79,7 +75,6 @@ docker-up:
 	@echo "🏥 Health check: http://localhost:8080/health"
 	@echo "📊 PostgreSQL: localhost:5432"
 	@echo "📊 MongoDB: localhost:27017"
-	@echo "🌐 Mongo Express: http://localhost:8081 (admin/admin123)"
 
 docker-down:
 	@echo "Stopping all services..."
@@ -112,6 +107,24 @@ docker-api-only:
 	@echo "🚀 API: http://localhost:8080"
 	@echo "🏥 Health check: http://localhost:8080/health"
 
+update-deploy:
+	@echo "Stopping and removing old API container..."
+	-docker-compose stop api
+	-docker-compose rm -f api
+	@echo "Removing old API image..."
+	-docker rmi golang_api_server:latest
+	@echo "Building new API image..."
+	docker-compose build api
+	@echo "Starting new API container..."
+	docker-compose up -d api
+	@echo "Waiting for API to be ready..."
+	@sleep 10
+	@echo "Cleaning up dangling images..."
+	docker image prune -f
+	@echo "✅ Deployment complete!"
+	@echo "🚀 API: http://localhost:8080"
+	@echo "🏥 Health check: http://localhost:8080/health"
+
 reboot:
 	@echo "🔄 Complete system reboot: stopping all services..."
 	docker-compose down -v --remove-orphans
@@ -128,9 +141,7 @@ reboot:
 	@echo "🏥 Health check: http://localhost:8080/health"
 	@echo "📊 PostgreSQL: localhost:5432"
 	@echo "📊 MongoDB: localhost:27017"
-	@echo "🌐 Mongo Express: http://localhost:8081 (admin/admin123)"
 
-# Quick shortcuts
 up: docker-up
 down: docker-down
 logs: docker-logs
