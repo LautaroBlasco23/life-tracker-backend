@@ -1,3 +1,6 @@
+ENV ?= development
+ENV_FILE := .env.$(ENV)
+
 .PHONY: help dev dev-watch db-up db-down db-reset docker-up docker-down docker-build \
         docker-logs code-check clean install-tools
 
@@ -9,17 +12,17 @@ help:
 	@echo "  code-check    - Format and lint code (run before commit)"
 	@echo ""
 	@echo "Development:"
-	@echo "  dev           - Run the application locally"
-	@echo "  dev-watch     - Run with hot reload"
+	@echo "  dev           - Run the application locally (ENV=dev default)"
+	@echo "  dev-watch     - Run with hot reload (ENV=dev default)"
 	@echo "  clean         - Clean build artifacts"
 	@echo ""
 	@echo "Database:"
-	@echo "  db-up         - Start databases"
+	@echo "  db-up         - Start databases (ENV=dev default)"
 	@echo "  db-down       - Stop databases"
 	@echo "  db-reset      - Reset databases (removes all data)"
 	@echo ""
 	@echo "Docker:"
-	@echo "  docker-up     - Start all services"
+	@echo "  docker-up     - Start all services (ENV=production for production)"
 	@echo "  docker-down   - Stop all services"
 	@echo "  docker-build  - Rebuild API image"
 	@echo "  docker-logs   - Show logs"
@@ -47,44 +50,44 @@ clean:
 	@echo "✅ Done!"
 
 dev:
-	@echo "🚀 Starting application..."
-	@go run cmd/main/main.go
+	@echo "🚀 Starting application with $(ENV) environment..."
+	@set -a && . $(ENV_FILE) && set +a && go run cmd/main/main.go
 
 dev-watch:
-	@echo "🔄 Starting with hot reload..."
-	@$(GOBIN)/air -c .air.toml
-
-db-up:
-	@echo "🗄️  Starting databases..."
-	@docker-compose up -d postgres mongodb
-	@sleep 5
-	@echo "✅ Databases ready!"
-
-db-down:
-	@echo "⏹️  Stopping databases..."
-	@docker-compose stop postgres mongodb
-
-db-reset:
-	@echo "🔄 Resetting databases..."
-	@docker-compose down -v
-	@docker-compose up -d postgres mongodb
-	@sleep 5
-	@echo "✅ Databases reset!"
-
-docker-build:
-	@echo "🏗️  Building API image..."
-	@docker-compose build api
+	@echo "🔄 Starting with hot reload ($(ENV) environment)..."
+	@ENV_FILE=$(ENV_FILE) $(GOBIN)/air -c .air.toml
 
 docker-up:
-	@echo "🚀 Starting all services..."
-	@docker-compose up -d
+	@echo "🚀 Starting all services with $(ENV) environment..."
+	@docker-compose --env-file $(ENV_FILE) up -d
 	@sleep 10
 	@echo "✅ Running at http://localhost:8080"
 
 docker-down:
 	@echo "⏹️  Stopping services..."
-	@docker-compose down
+	@docker-compose --env-file $(ENV_FILE) down
+
+docker-build:
+	@echo "🏗️  Building API image ($(ENV) environment)..."
+	@docker-compose --env-file $(ENV_FILE) build api
 
 docker-logs:
 	@echo "📋 Showing logs..."
-	@docker-compose logs -f api
+	@docker-compose --env-file $(ENV_FILE) logs -f api
+
+db-up:
+	@echo "🗄️  Starting databases ($(ENV) environment)..."
+	@docker-compose --env-file $(ENV_FILE) up -d postgres mongodb
+	@sleep 5
+	@echo "✅ Databases ready!"
+
+db-down:
+	@echo "⏹️  Stopping databases..."
+	@docker-compose --env-file $(ENV_FILE) stop postgres mongodb
+
+db-reset:
+	@echo "🔄 Resetting databases ($(ENV) environment)..."
+	@docker-compose --env-file $(ENV_FILE) down -v
+	@docker-compose --env-file $(ENV_FILE) up -d postgres mongodb
+	@sleep 5
+	@echo "✅ Databases reset!"
