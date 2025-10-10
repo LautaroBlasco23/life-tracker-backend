@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/service"
 	"net/http"
@@ -19,14 +20,32 @@ func NewActivityController(activityService *service.ActivityService) *ActivityCo
 	}
 }
 
+func getActivityUserID(ctx *gin.Context) (uint, error) {
+	value, exists := ctx.Get("userID")
+	if !exists {
+		return 0, errors.New("user ID not found in context")
+	}
+	userID, ok := value.(uint)
+	if !ok {
+		return 0, errors.New("invalid user ID type in context")
+	}
+	return userID, nil
+}
+
 func (c *ActivityController) CreateActivity(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	var req dto.CreateActivityRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if bindErr := ctx.ShouldBindJSON(&req); bindErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
-			"details": err.Error(),
+			"details": bindErr.Error(),
 		})
 		return
 	}
@@ -46,7 +65,13 @@ func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 }
 
 func (c *ActivityController) GetUserActivities(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	includeInactive := ctx.Query("include_inactive") == "true"
 
@@ -66,7 +91,13 @@ func (c *ActivityController) GetUserActivities(ctx *gin.Context) {
 }
 
 func (c *ActivityController) GetTodayActivities(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	activities, err := c.activityService.GetTodayActivities(userID)
 	if err != nil {
@@ -84,7 +115,13 @@ func (c *ActivityController) GetTodayActivities(ctx *gin.Context) {
 }
 
 func (c *ActivityController) GetActivity(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -110,7 +147,13 @@ func (c *ActivityController) GetActivity(ctx *gin.Context) {
 }
 
 func (c *ActivityController) UpdateActivity(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -122,10 +165,10 @@ func (c *ActivityController) UpdateActivity(ctx *gin.Context) {
 	}
 
 	var req dto.UpdateActivityRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if bindErr := ctx.ShouldBindJSON(&req); bindErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
-			"details": err.Error(),
+			"details": bindErr.Error(),
 		})
 		return
 	}
@@ -145,7 +188,13 @@ func (c *ActivityController) UpdateActivity(ctx *gin.Context) {
 }
 
 func (c *ActivityController) DeleteActivity(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -156,9 +205,9 @@ func (c *ActivityController) DeleteActivity(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.activityService.DeleteActivity(userID, uint(activityID)); err != nil {
+	if deleteErr := c.activityService.DeleteActivity(userID, uint(activityID)); deleteErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": deleteErr.Error(),
 		})
 		return
 	}
@@ -169,7 +218,13 @@ func (c *ActivityController) DeleteActivity(ctx *gin.Context) {
 }
 
 func (c *ActivityController) RecordActivity(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -181,10 +236,10 @@ func (c *ActivityController) RecordActivity(ctx *gin.Context) {
 	}
 
 	var req dto.RecordActivityRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if bindErr := ctx.ShouldBindJSON(&req); bindErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
-			"details": err.Error(),
+			"details": bindErr.Error(),
 		})
 		return
 	}
@@ -204,7 +259,13 @@ func (c *ActivityController) RecordActivity(ctx *gin.Context) {
 }
 
 func (c *ActivityController) GetActivityRecords(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -217,7 +278,7 @@ func (c *ActivityController) GetActivityRecords(ctx *gin.Context) {
 
 	limit := 50
 	if limitParam := ctx.Query("limit"); limitParam != "" {
-		if l, err := strconv.Atoi(limitParam); err == nil && l > 0 {
+		if l, parseErr := strconv.Atoi(limitParam); parseErr == nil && l > 0 {
 			limit = l
 		}
 	}
@@ -238,7 +299,13 @@ func (c *ActivityController) GetActivityRecords(ctx *gin.Context) {
 }
 
 func (c *ActivityController) GetActivityStats(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -264,7 +331,13 @@ func (c *ActivityController) GetActivityStats(ctx *gin.Context) {
 }
 
 func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getActivityUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
@@ -275,9 +348,9 @@ func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.activityService.RevertLastCompletion(userID, uint(activityID)); err != nil {
+	if revertErr := c.activityService.RevertLastCompletion(userID, uint(activityID)); revertErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": revertErr.Error(),
 		})
 		return
 	}

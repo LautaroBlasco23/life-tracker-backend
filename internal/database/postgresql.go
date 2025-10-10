@@ -3,8 +3,10 @@ package database
 import (
 	"fmt"
 	"life-tracker-backend/internal/config"
-	activityModel "life-tracker-backend/internal/domain/activity/model"
 	"life-tracker-backend/internal/domain/auth/model"
+
+	activityModel "life-tracker-backend/internal/domain/activity/model"
+
 	userModel "life-tracker-backend/internal/domain/user/model"
 
 	"gorm.io/driver/postgres"

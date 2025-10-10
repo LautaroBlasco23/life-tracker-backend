@@ -8,14 +8,14 @@ import (
 )
 
 type User struct {
-	ID            uint           `json:"id" gorm:"primaryKey"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	ProfilePicURL *string        `json:"profilePicUrl,omitempty"`
+	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
 	FirstName     string         `json:"firstName" gorm:"not null"`
 	LastName      string         `json:"lastName" gorm:"not null"`
 	Email         string         `json:"email" gorm:"uniqueIndex;not null"`
-	ProfilePicURL *string        `json:"profilePicUrl,omitempty"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
+	ID            uint           `json:"id" gorm:"primaryKey"`
 }
 
 func (u *User) ToResponse() *dto.UserResponse {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/model"
@@ -20,10 +21,10 @@ type AuthService struct {
 }
 
 type JWTClaims struct {
-	UserID uint   `json:"userId"`
-	Email  string `json:"email"`
-	Type   string `json:"type"` // "access" or "refresh"
 	jwt.RegisteredClaims
+	Email  string `json:"email"`
+	Type   string `json:"type"`
+	UserID uint   `json:"userId"`
 }
 
 func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
@@ -34,48 +35,42 @@ func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
 }
 
 func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, uint, error) {
-	// Check if user already exists
 	var existingAuth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&existingAuth).Error; err == nil {
 		return nil, 0, errors.New("user already exists")
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Start transaction
 	tx := s.db.Begin()
 
-	// Create user
 	user := &userModel.User{
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		Email:     req.Email,
 	}
 
-	if err := tx.Create(user).Error; err != nil {
+	if createErr := tx.Create(user).Error; createErr != nil {
 		tx.Rollback()
-		return nil, 0, err
+		return nil, 0, createErr
 	}
 
-	// Create auth record
 	auth := &model.Auth{
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
 		UserID:       user.ID,
 	}
 
-	if err := tx.Create(auth).Error; err != nil {
+	if createErr := tx.Create(auth).Error; createErr != nil {
 		tx.Rollback()
-		return nil, 0, err
+		return nil, 0, createErr
 	}
 
 	tx.Commit()
 
-	// Generate tokens
 	tokens, err := s.generateTokens(user.ID, user.Email)
 	if err != nil {
 		return nil, 0, err
@@ -90,7 +85,6 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, er
 		return nil, 0, errors.New("invalid credentials")
 	}
 
-	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
 		return nil, 0, errors.New("invalid credentials")
 	}
@@ -117,13 +111,17 @@ func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, err
 }
 
 func (s *AuthService) generateTokens(userID uint, email string) (*dto.TokenResponse, error) {
-	// Parse expiry duration
-	accessExpiry, _ := time.ParseDuration(s.cfg.JWTExpiry)
-	refreshExpiry, _ := time.ParseDuration(s.cfg.JWTRefreshExpiry)
+	accessExpiry, err := time.ParseDuration(s.cfg.JWTExpiry)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JWT expiry duration: %w", err)
+	}
+	refreshExpiry, err := time.ParseDuration(s.cfg.JWTRefreshExpiry)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JWT refresh expiry duration: %w", err)
+	}
 
 	now := time.Now()
 
-	// Generate access token
 	accessClaims := &JWTClaims{
 		UserID: userID,
 		Email:  email,
@@ -141,7 +139,6 @@ func (s *AuthService) generateTokens(userID uint, email string) (*dto.TokenRespo
 		return nil, err
 	}
 
-	// Generate refresh token
 	refreshClaims := &JWTClaims{
 		UserID: userID,
 		Email:  email,

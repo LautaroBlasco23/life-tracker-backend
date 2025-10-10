@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"life-tracker-backend/internal/domain/activity/dto"
 	"time"
 
@@ -18,7 +19,11 @@ const (
 )
 
 func (f *Frequency) Scan(value interface{}) error {
-	*f = Frequency(value.(string))
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("cannot scan type %T into Frequency", value)
+	}
+	*f = Frequency(str)
 	return nil
 }
 
@@ -47,7 +52,11 @@ const (
 )
 
 func (dt *DayTime) Scan(value interface{}) error {
-	*dt = DayTime(value.(string))
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("cannot scan type %T into DayTime", value)
+	}
+	*dt = DayTime(str)
 	return nil
 }
 
@@ -56,18 +65,18 @@ func (dt DayTime) Value() (driver.Value, error) {
 }
 
 type Activity struct {
-	ID               uint           `json:"id" gorm:"primaryKey"`
-	UserID           uint           `json:"userId" gorm:"not null;index"`
-	Title            string         `json:"title" gorm:"not null;size:255"`
-	Description      string         `json:"description" gorm:"type:text"`
-	CompletionAmount int            `json:"completionAmount" gorm:"not null;default:1"`
-	Frequency        Frequency      `json:"frequency" gorm:"not null"`
-	DayFrequency     string         `json:"dayFrequency,omitempty" gorm:"type:text"` // JSON array of days for weekly activities
-	DayTime          DayTime        `json:"dayTime" gorm:"not null;default:'morning'"`
-	IsActive         bool           `json:"isActive" gorm:"default:true"`
 	CreatedAt        time.Time      `json:"createdAt"`
 	UpdatedAt        time.Time      `json:"updatedAt"`
 	DeletedAt        gorm.DeletedAt `json:"-" gorm:"index"`
+	Title            string         `json:"title" gorm:"not null;size:255"`
+	Description      string         `json:"description" gorm:"type:text"`
+	Frequency        Frequency      `json:"frequency" gorm:"not null"`
+	DayFrequency     string         `json:"dayFrequency,omitempty" gorm:"type:text"`
+	DayTime          DayTime        `json:"dayTime" gorm:"not null;default:'morning'"`
+	ID               uint           `json:"id" gorm:"primaryKey"`
+	UserID           uint           `json:"userId" gorm:"not null;index"`
+	CompletionAmount int            `json:"completionAmount" gorm:"not null;default:1"`
+	IsActive         bool           `json:"isActive" gorm:"default:true"`
 }
 
 func (a *Activity) ToResponse() *dto.ActivityResponse {
@@ -83,8 +92,8 @@ func (a *Activity) ToResponse() *dto.ActivityResponse {
 		IsActive:         a.IsActive,
 		CreatedAt:        a.CreatedAt,
 		UpdatedAt:        a.UpdatedAt,
-		TodayCompletions: 0,     // Will be set by service
-		IsCompletedToday: false, // Will be set by service
+		TodayCompletions: 0,
+		IsCompletedToday: false,
 	}
 }
 

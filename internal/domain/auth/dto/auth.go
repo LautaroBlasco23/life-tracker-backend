@@ -15,8 +15,8 @@ type RegisterRequest struct {
 type TokenResponse struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
-	ExpiresIn    int64  `json:"expiresIn"`
 	TokenType    string `json:"tokenType"`
+	ExpiresIn    int64  `json:"expiresIn"`
 }
 
 type RefreshRequest struct {

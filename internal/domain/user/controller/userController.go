@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/service"
 	"net/http"
@@ -19,8 +20,28 @@ func NewUserController(userService *service.UserService) *UserController {
 	}
 }
 
+func getUserID(ctx *gin.Context) (uint, error) {
+	value, exists := ctx.Get("userID")
+	if !exists {
+		return 0, errors.New("user ID not found in context")
+	}
+
+	userID, ok := value.(uint)
+	if !ok {
+		return 0, errors.New("invalid user ID type in context")
+	}
+
+	return userID, nil
+}
+
 func (c *UserController) GetProfile(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	user, err := c.userService.GetProfile(userID)
 	if err != nil {
@@ -37,10 +58,16 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 }
 
 func (c *UserController) UpdateProfile(ctx *gin.Context) {
-	userID := ctx.MustGet("userID").(uint)
+	userID, err := getUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	var req dto.UpdateUserRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err = ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request",
 			"details": err.Error(),

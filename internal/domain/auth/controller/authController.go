@@ -3,8 +3,9 @@ package controller
 import (
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/service"
-	userService "life-tracker-backend/internal/domain/user/service"
 	"net/http"
+
+	userService "life-tracker-backend/internal/domain/user/service"
 
 	"github.com/gin-gonic/gin"
 )

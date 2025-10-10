@@ -78,10 +78,10 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) (
 		todayCompletions = make(map[uint]int)
 	}
 
-	var responses []*dto.ActivityResponse
-	for _, activity := range activities {
-		completions := todayCompletions[activity.ID]
-		responses = append(responses, activity.ToResponseWithCompletions(completions))
+	responses := make([]*dto.ActivityResponse, len(activities))
+	for i := range activities {
+		completions := todayCompletions[activities[i].ID]
+		responses[i] = activities[i].ToResponseWithCompletions(completions)
 	}
 
 	return responses, nil
@@ -99,8 +99,8 @@ func (s *ActivityService) GetTodayActivities(userID uint) ([]*dto.ActivityRespon
 	}
 
 	activityIDs := make([]uint, len(activities))
-	for i, activity := range activities {
-		activityIDs[i] = activity.ID
+	for i := range activities {
+		activityIDs[i] = activities[i].ID
 	}
 
 	metadata, err := s.getCompletionMetadata(userID, activityIDs)
@@ -116,10 +116,10 @@ func (s *ActivityService) GetTodayActivities(userID uint) ([]*dto.ActivityRespon
 	now := time.Now()
 	var responses []*dto.ActivityResponse
 
-	for _, activity := range activities {
-		if s.shouldShowToday(&activity, metadata, now) {
-			completions := metadata.TodayCompletions[activity.ID]
-			responses = append(responses, activity.ToResponseWithCompletions(completions))
+	for i := range activities {
+		if s.shouldShowToday(&activities[i], metadata, now) {
+			completions := metadata.TodayCompletions[activities[i].ID]
+			responses = append(responses, activities[i].ToResponseWithCompletions(completions))
 		}
 	}
 
@@ -144,7 +144,25 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		return nil, errors.New("activity not found")
 	}
 
+	updates := s.buildUpdateMap(req)
+	if len(updates) == 0 {
+		return activity.ToResponse(), nil
+	}
+
+	if err := s.db.Model(&activity).Updates(updates).Error; err != nil {
+		return nil, errors.New("failed to update activity")
+	}
+
+	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
+		return nil, errors.New("failed to fetch updated activity")
+	}
+
+	return activity.ToResponse(), nil
+}
+
+func (s *ActivityService) buildUpdateMap(req *dto.UpdateActivityRequest) map[string]interface{} {
 	updates := make(map[string]interface{})
+
 	if req.Title != nil {
 		updates["title"] = *req.Title
 	}
@@ -157,7 +175,7 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 	if req.Frequency != nil {
 		if *req.Frequency == "weekly" && req.DayFrequency != nil && *req.DayFrequency != "" {
 			if err := s.validateDayFrequency(*req.DayFrequency); err != nil {
-				return nil, err
+				return nil
 			}
 		}
 		updates["frequency"] = *req.Frequency
@@ -172,17 +190,7 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		updates["is_active"] = *req.IsActive
 	}
 
-	if len(updates) > 0 {
-		if err := s.db.Model(&activity).Updates(updates).Error; err != nil {
-			return nil, errors.New("failed to update activity")
-		}
-	}
-
-	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
-		return nil, errors.New("failed to fetch updated activity")
-	}
-
-	return activity.ToResponse(), nil
+	return updates
 }
 
 func (s *ActivityService) DeleteActivity(userID, activityID uint) error {
@@ -416,9 +424,9 @@ func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint)
 		},
 		{
 			"$group": bson.M{
-				"_id":                "$activityId",
-				"latestCompletion":   bson.M{"$first": "$completionDate"},
-				"monthlyCompletion":  bson.M{"$first": bson.M{"$cond": bson.A{bson.M{"$gte": bson.A{"$completionDate", startOfMonth}}, "$completionDate", nil}}},
+				"_id":               "$activityId",
+				"latestCompletion":  bson.M{"$first": "$completionDate"},
+				"monthlyCompletion": bson.M{"$first": bson.M{"$cond": bson.A{bson.M{"$gte": bson.A{"$completionDate", startOfMonth}}, "$completionDate", nil}}},
 				"todayCount": bson.M{
 					"$sum": bson.M{
 						"$cond": bson.A{
@@ -451,9 +459,9 @@ func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint)
 
 	for cursor.Next(context.Background()) {
 		var result struct {
-			ID                uint       `bson:"_id"`
 			LatestCompletion  time.Time  `bson:"latestCompletion"`
 			MonthlyCompletion *time.Time `bson:"monthlyCompletion"`
+			ID                uint       `bson:"_id"`
 			TodayCount        int        `bson:"todayCount"`
 		}
 		if err := cursor.Decode(&result); err != nil {
@@ -487,7 +495,7 @@ func (s *ActivityService) shouldShowToday(activity *model.Activity, metadata *Co
 
 		currentWeekday := strings.ToLower(now.Weekday().String())
 		for _, day := range days {
-			if strings.ToLower(day) == currentWeekday {
+			if strings.EqualFold(day, currentWeekday) {
 				return true
 			}
 		}

@@ -17,11 +17,11 @@ type UpdateUserRequest struct {
 }
 
 type UserResponse struct {
-	ID            uint      `json:"id"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+	ProfilePicURL *string   `json:"profilePicUrl,omitempty"`
 	FirstName     string    `json:"firstName"`
 	LastName      string    `json:"lastName"`
 	Email         string    `json:"email"`
-	ProfilePicURL *string   `json:"profilePicUrl,omitempty"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID            uint      `json:"id"`
 }

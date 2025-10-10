@@ -9,10 +9,10 @@ import (
 )
 
 type JWTClaims struct {
-	UserID uint   `json:"userId"`
+	jwt.RegisteredClaims
 	Email  string `json:"email"`
 	Type   string `json:"type"`
-	jwt.RegisteredClaims
+	UserID uint   `json:"userId"`
 }
 
 func JWTAuthMiddleware(secretKey string) gin.HandlerFunc {

@@ -21,7 +21,10 @@ func NewUserService(db *gorm.DB) *UserService {
 func (s *UserService) GetProfile(userID uint) (*dto.UserResponse, error) {
 	var user model.User
 	if err := s.db.First(&user, userID).Error; err != nil {
-		return nil, errors.New("user not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to fetch user")
 	}
 
 	return user.ToResponse(), nil
@@ -33,7 +36,6 @@ func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*d
 		return nil, errors.New("user not found")
 	}
 
-	// Update only provided fields
 	updates := make(map[string]interface{})
 	if req.FirstName != nil {
 		updates["first_name"] = *req.FirstName
@@ -51,7 +53,6 @@ func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*d
 		}
 	}
 
-	// Fetch updated user
 	if err := s.db.First(&user, userID).Error; err != nil {
 		return nil, errors.New("failed to fetch updated user")
 	}
@@ -65,9 +66,9 @@ func (s *UserService) GetAllUsers() ([]*dto.UserResponse, error) {
 		return nil, errors.New("failed to fetch users")
 	}
 
-	var responses []*dto.UserResponse
-	for _, user := range users {
-		responses = append(responses, user.ToResponse())
+	responses := make([]*dto.UserResponse, 0, len(users))
+	for i := range users {
+		responses = append(responses, users[i].ToResponse())
 	}
 
 	return responses, nil

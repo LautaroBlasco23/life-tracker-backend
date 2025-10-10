@@ -5,10 +5,10 @@ import "time"
 type CreateActivityRequest struct {
 	Title            string `json:"title" binding:"required,min=1,max=255"`
 	Description      string `json:"description" binding:"max=1000"`
-	CompletionAmount int    `json:"completionAmount" binding:"required,min=1"`
 	Frequency        string `json:"frequency" binding:"required,oneof=daily weekly monthly oneTime"`
-	DayFrequency     string `json:"dayFrequency,omitempty"` // JSON array: ["monday", "wednesday", "friday"]
+	DayFrequency     string `json:"dayFrequency,omitempty"`
 	DayTime          string `json:"dayTime" binding:"required,oneof=morning afternoon evening"`
+	CompletionAmount int    `json:"completionAmount" binding:"required,min=1"`
 }
 
 type UpdateActivityRequest struct {
@@ -22,18 +22,18 @@ type UpdateActivityRequest struct {
 }
 
 type ActivityResponse struct {
-	ID               uint      `json:"id"`
-	UserID           uint      `json:"userId"`
-	Title            string    `json:"title"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 	Description      string    `json:"description"`
-	CompletionAmount int       `json:"completionAmount"`
 	Frequency        string    `json:"frequency"`
 	DayFrequency     string    `json:"dayFrequency,omitempty"`
 	DayTime          string    `json:"dayTime"`
-	IsActive         bool      `json:"isActive"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	Title            string    `json:"title"`
+	ID               uint      `json:"id"`
+	CompletionAmount int       `json:"completionAmount"`
+	UserID           uint      `json:"userId"`
 	TodayCompletions int       `json:"todayCompletions"`
+	IsActive         bool      `json:"isActive"`
 	IsCompletedToday bool      `json:"isCompletedToday"`
 }
 
@@ -44,20 +44,20 @@ type RecordActivityRequest struct {
 }
 
 type ActivityRecordResponse struct {
+	CompletionDate time.Time `json:"completionDate"`
+	CreatedAt      time.Time `json:"createdAt"`
 	ID             string    `json:"id"`
+	Notes          string    `json:"notes,omitempty"`
 	ActivityID     uint      `json:"activityId"`
 	UserID         uint      `json:"userId"`
-	CompletionDate time.Time `json:"completionDate"`
-	Notes          string    `json:"notes,omitempty"`
-	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type ActivityStatsResponse struct {
-	ActivityID       uint                      `json:"activityId"`
 	Title            string                    `json:"title"`
+	RecentRecords    []*ActivityRecordResponse `json:"recentRecords"`
+	ActivityID       uint                      `json:"activityId"`
 	TotalCompletions int64                     `json:"totalCompletions"`
 	CurrentStreak    int                       `json:"currentStreak"`
 	LongestStreak    int                       `json:"longestStreak"`
-	CompletionRate   float64                   `json:"completionRate"` // Percentage
-	RecentRecords    []*ActivityRecordResponse `json:"recentRecords"`
+	CompletionRate   float64                   `json:"completionRate"`
 }
