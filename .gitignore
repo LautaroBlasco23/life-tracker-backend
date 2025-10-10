@@ -23,6 +23,7 @@ go.work
 .env.development
 .env.test
 .env.production
+.env.prod
 
 # IDE and editor files
 .vscode/
