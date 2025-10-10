@@ -1,277 +1,190 @@
-# Golang REST API with Clean Architecture
+# Life Tracker Backend
 
-A production-ready REST API built with Go, featuring JWT authentication, clean architecture, and comprehensive CRUD operations.
+Golang App developed to handle life tracker's app logic, featuring JWT authentication, user management, and activity tracking with completion records.
+
+![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
+## Features
+
+- **Authentication**: JWT tokens with refresh mechanism
+- **User Management**: Complete CRUD operations for users
+- **Activity Tracking**: Create and track daily, weekly, monthly, or one-time activities
+- **Activity Records**: Store completion history with MongoDB
+- **Activity Stats**: Track streaks, completion rates, and history
+- **Hybrid Database**: PostgreSQL for relational data, MongoDB for time-series records
+- **Clean Architecture**: Separated concerns with clear domain boundaries
+- **Security**: Bcrypt password hashing, JWT tokens, input validation
+- **Soft Deletes**: GORM soft delete support
+
+## Tech Stack
+
+- **Go 1.21+** - Programming language
+- **Gin** - HTTP web framework
+- **GORM** - ORM for database operations
+- **PostgreSQL** - Database
+- **JWT** - Token-based authentication
+- **Bcrypt** - Password hashing
 
 ## Project Structure
 
 ```
 project/
-├── cmd/
-│   └── main/
-│       └── main.go
+├── cmd/main/              # Application entry point
 ├── internal/
-│   ├── auth/
-│   │   ├── model/
-│   │   │   └── auth.go
-│   │   ├── service/
-│   │   │   └── auth_service.go
-│   │   ├── controller/
-│   │   │   └── auth_controller.go
-│   │   └── routes/
-│   │       └── auth_routes.go
-│   ├── user/
-│   │   ├── model/
-│   │   │   └── user.go
-│   │   ├── service/
-│   │   │   └── user_service.go
-│   │   ├── controller/
-│   │   │   └── user_controller.go
-│   │   └── routes/
-│   │       └── user_routes.go
-│   ├── middleware/
-│   │   └── auth_middleware.go
-│   ├── config/
-│   │   └── config.go
-│   └── database/
-│       └── database.go
+│   ├── auth/              # Authentication module
+│   ├── user/              # User module
+│   ├── middleware/        # HTTP middleware
+│   ├── config/            # Configuration
+│   └── database/          # Database setup
 ├── .env
-├── go.mod
-└── README.md
+└── go.mod
 ```
-
-## Features
-
-- **Clean Architecture**: Organized by feature modules with clear separation of concerns
-- **JWT Authentication**: Secure token-based authentication with refresh tokens
-- **Password Hashing**: Bcrypt for secure password storage
-- **Environment Configuration**: Flexible configuration via environment variables
-- **Database Integration**: GORM with PostgreSQL support
-- **Middleware**: Authentication and CORS middleware
-- **Input Validation**: Request validation using Gin binding
-- **Error Handling**: Comprehensive error handling and responses
-- **RESTful API**: Following REST conventions
-- **Soft Deletes**: GORM soft delete support
-- **Auto Migration**: Automatic database schema migration
-
-## Tech Stack
-
-- **Go 1.21+**
-- **Gin** - HTTP web framework
-- **GORM** - ORM for database operations
-- **PostgreSQL** - Primary database
-- **JWT** - Authentication tokens
-- **Bcrypt** - Password hashing
-- **Godotenv** - Environment variable management
-
-## Prerequisites
-
-- Go 1.21 or higher
-- PostgreSQL database
-- Git
 
 ## Quick Start
 
-### 1. Clone the repository
+### Prerequisites
+- Go 1.21+
+- PostgreSQL
+
+### Installation
+
+1. **Clone and install dependencies**
 ```bash
 git clone <your-repo-url>
 cd golang-rest-api
-```
-
-### 2. Install dependencies
-```bash
 go mod download
 ```
 
-### 3. Setup environment variables
-Create a `.env` file in the root directory (see `.env` example above)
+2. **Setup environment variables**
 
-### 4. Setup PostgreSQL database
-Create a PostgreSQL database with the name specified in your `.env` file.
+Create a `.env` file:
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=your_database
+DB_SSLMODE=disable
 
-### 5. Run the application
+JWT_SECRET=your-secret-key-here
+JWT_EXPIRY=15m
+REFRESH_TOKEN_EXPIRY=7d
+
+SERVER_PORT=8080
+```
+
+3. **Create PostgreSQL database**
+```bash
+createdb your_database
+```
+
+4. **Run the application**
 ```bash
 go run cmd/main/main.go
 ```
 
-The server will start on the port specified in your `.env` file (default: 8080).
+Server starts at `http://localhost:8080`
 
 ## API Endpoints
 
-### Authentication Endpoints
+### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/auth/register` | Register a new user |
+| POST | `/api/v1/auth/register` | Register new user |
 | POST | `/api/v1/auth/login` | Login user |
 | POST | `/api/v1/auth/refresh` | Refresh access token |
 
-### User Endpoints (Protected)
+### Users (Protected)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/users/profile` | Get current user profile |
-| PUT | `/api/v1/users/profile` | Update current user profile |
-| GET | `/api/v1/users` | Get all users |
+| GET | `/api/v1/users/profile` | Get current user |
+| PUT | `/api/v1/users/profile` | Update current user |
+| GET | `/api/v1/users` | List all users |
 | GET | `/api/v1/users/:id` | Get user by ID |
-| DELETE | `/api/v1/users/:id` | Delete user by ID |
+| DELETE | `/api/v1/users/:id` | Delete user |
 
-### Health Check
+### Health
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/health` | Health check endpoint |
+| GET | `/health` | Health check |
 
-## API Usage Examples
+## Usage Examples
 
-### Register a new user
+**Register a user**
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "john.doe@example.com",
+    "email": "user@example.com",
     "password": "password123",
     "firstName": "John",
     "lastName": "Doe"
   }'
 ```
 
-### Login
+**Login**
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "john.doe@example.com",
+    "email": "user@example.com",
     "password": "password123"
   }'
 ```
 
-### Get user profile
+**Get profile (authenticated)**
 ```bash
 curl -X GET http://localhost:8080/api/v1/users/profile \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-### Update user profile
-```bash
-curl -X PUT http://localhost:8080/api/v1/users/profile \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "Jonathan",
-    "profilePicUrl": "https://example.com/profile.jpg"
-  }'
+## Database Schema
+
+**Users**
+```
+id              UUID (PK)
+first_name      VARCHAR (required)
+last_name       VARCHAR (required)
+email           VARCHAR (unique, required)
+profile_pic_url VARCHAR (optional)
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+deleted_at      TIMESTAMP (soft delete)
 ```
 
-### Refresh token
-```bash
-curl -X POST http://localhost:8080/api/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{
-    "refreshToken": "YOUR_REFRESH_TOKEN"
-  }'
+**Auth**
+```
+id            UUID (PK)
+email         VARCHAR (unique, required)
+password_hash VARCHAR (required)
+user_id       UUID (FK -> users.id)
+created_at    TIMESTAMP
+updated_at    TIMESTAMP
+deleted_at    TIMESTAMP (soft delete)
 ```
 
 ## Development
 
-### Hot Reload with Air
-1. Install Air:
-   ```bash
-   go install github.com/cosmtrek/air@latest
-   ```
+**Hot reload with Air**
+```bash
+go install github.com/cosmtrek/air@latest
+air
+```
 
-2. Run with hot reload:
-   ```bash
-   air
-   ```
-
-### Running Tests
+**Run tests**
 ```bash
 go test ./...
 ```
 
-## Architecture Benefits
+## Notes
 
-### Separation of Concerns
-- **Models**: Data structures and database schemas
-- **Services**: Business logic and data processing
-- **Controllers**: HTTP request/response handling
-- **Routes**: API route definitions
-- **Middleware**: Cross-cutting concerns (auth, CORS, logging)
-
-### Testability
-Each layer can be tested independently:
-- Unit tests for services (business logic)
-- Integration tests for controllers
-- End-to-end tests for routes
-
-### Scalability
-- Easy to add new features
-- Clear boundaries between components
-- Easy to maintain and refactor
-
-## Security Features
-
-- **Password Hashing**: Using bcrypt with salt
-- **JWT Tokens**: Secure token-based authentication
-- **Token Expiry**: Configurable token expiration
-- **Refresh Tokens**: Secure token refresh mechanism
-- **Input Validation**: Request validation and sanitization
-- **CORS Protection**: Cross-Origin Resource Sharing configuration
-
-## Database Schema
-
-### Users Table
-- `id` (Primary Key)
-- `first_name` (Required)
-- `last_name` (Required)
-- `email` (Unique, Required)
-- `profile_pic_url` (Optional)
-- `created_at`
-- `updated_at`
-- `deleted_at` (Soft Delete)
-
-### Auth Table
-- `id` (Primary Key)
-- `email` (Unique, Required)
-- `password_hash` (Required)
-- `user_id` (Foreign Key to Users)
-- `created_at`
-- `updated_at`
-- `deleted_at` (Soft Delete)
-
-## Production Recommendations
-
-### Security
-- Use strong JWT secrets
-- Implement rate limiting
-- Add request logging
-- Use HTTPS in production
-- Validate and sanitize all inputs
-
-### Performance
-- Add database indexing
-- Implement caching (Redis)
-- Use connection pooling
-- Add monitoring and metrics
-
-### Deployment
-- Use Docker containers
-- Set up CI/CD pipelines
-- Configure environment-specific settings
-- Add health checks and monitoring
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- Use strong JWT secrets in production
+- Enable HTTPS for production deployments
+- Consider adding rate limiting for public APIs
+- Database indexes are recommended for email fields
+- Implement logging and monitoring for production use
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Gin Web Framework](https://gin-gonic.com/)
-- [GORM](https://gorm.io/)
-- [JWT-Go](https://github.com/golang-jwt/jwt)
-- [Godotenv](https://github.com/joho/godotenv)
+MIT License - feel free to use this project for learning and personal projects.
