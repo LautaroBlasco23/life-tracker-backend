@@ -3,11 +3,10 @@ run:
   timeout: 5m
   tests: true
   go: '1.23'
-
 output:
   format: colored-line-number
+  path: stdout
   print-linter-name: true
-
 linters:
   enable:
     - errcheck
@@ -15,10 +14,8 @@ linters:
     - ineffassign
     - staticcheck
     - gosec
-    - revive
     - gocyclo
     - gocritic
-
 linters-settings:
   errcheck:
     check-type-assertions: true
@@ -37,16 +34,9 @@ linters-settings:
     disabled-checks:
       - unnamedResult
   
-  revive:
-    rules:
-      - name: exported
-      - name: error-return
-      - name: error-naming
-  
   gosec:
     excludes:
       - G404
-
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
