@@ -1,0 +1,610 @@
+{
+	"info": {
+		"_postman_id": "finances-collection-001",
+		"name": "Finances",
+		"description": "Finance management endpoints for tracking income and outcomes with categories",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get All Categories",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/categories",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"categories"
+					]
+				},
+				"description": "Get all finance categories with their subcategories"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Income Categories",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/categories?type=income",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"categories"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "income"
+						}
+					]
+				},
+				"description": "Get only income categories"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Outcome Categories",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/categories?type=outcome",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"categories"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "outcome"
+						}
+					]
+				},
+				"description": "Get only outcome categories"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Income Transaction",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 201) {",
+							"    const response = pm.response.json();",
+							"    pm.environment.set('transaction_id', response.data.id);",
+							"    console.log('Transaction ID saved to environment:', response.data.id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"type\": \"income\",\n    \"amount\": 5000.00,\n    \"categoryId\": 1,\n    \"subcategoryId\": 1,\n    \"description\": \"Monthly salary payment\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					]
+				},
+				"description": "Create an income transaction (salary example)"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Outcome Transaction",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"type\": \"outcome\",\n    \"amount\": 150.50,\n    \"categoryId\": 8,\n    \"subcategoryId\": 21,\n    \"description\": \"Weekly groceries at supermarket\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					]
+				},
+				"description": "Create an outcome transaction (food/groceries example)"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Transaction with Date",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"type\": \"outcome\",\n    \"amount\": 89.99,\n    \"categoryId\": 11,\n    \"subcategoryId\": 31,\n    \"description\": \"Concert tickets\",\n    \"date\": \"2025-10-01T19:00:00Z\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					]
+				},
+				"description": "Create a transaction with a specific date"
+			},
+			"response": []
+		},
+		{
+			"name": "Get All Transactions",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					]
+				},
+				"description": "Get all transactions for the authenticated user"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Income Transactions",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions?type=income",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "income"
+						}
+					]
+				},
+				"description": "Get only income transactions"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Outcome Transactions",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions?type=outcome",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "outcome"
+						}
+					]
+				},
+				"description": "Get only outcome transactions"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Transactions by Date Range",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions?start_date=2025-10-01&end_date=2025-10-31",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					],
+					"query": [
+						{
+							"key": "start_date",
+							"value": "2025-10-01"
+						},
+						{
+							"key": "end_date",
+							"value": "2025-10-31"
+						}
+					]
+				},
+				"description": "Get transactions within a specific date range"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Transactions (Limited)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions?limit=10",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions"
+					],
+					"query": [
+						{
+							"key": "limit",
+							"value": "10"
+						}
+					]
+				},
+				"description": "Get limited number of transactions"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Transaction by ID",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions/{{transaction_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions",
+						"{{transaction_id}}"
+					]
+				},
+				"description": "Get a specific transaction by ID"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Transaction",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"amount\": 175.75,\n    \"description\": \"Weekly groceries at supermarket - updated amount\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions/{{transaction_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions",
+						"{{transaction_id}}"
+					]
+				},
+				"description": "Update an existing transaction"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Transaction Category",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"categoryId\": 11,\n    \"subcategoryId\": 32,\n    \"description\": \"Changed to entertainment - movies\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions/{{transaction_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions",
+						"{{transaction_id}}"
+					]
+				},
+				"description": "Update transaction category and subcategory"
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Transaction",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/transactions/{{transaction_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"transactions",
+						"{{transaction_id}}"
+					]
+				},
+				"description": "Delete a transaction permanently"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Finance Summary (Month)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/summary?start_date=2025-10-01&end_date=2025-10-31",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"summary"
+					],
+					"query": [
+						{
+							"key": "start_date",
+							"value": "2025-10-01"
+						},
+						{
+							"key": "end_date",
+							"value": "2025-10-31"
+						}
+					]
+				},
+				"description": "Get financial summary for October 2025 with category breakdowns"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Finance Summary (Year)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/summary?start_date=2025-01-01&end_date=2025-12-31",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"summary"
+					],
+					"query": [
+						{
+							"key": "start_date",
+							"value": "2025-01-01"
+						},
+						{
+							"key": "end_date",
+							"value": "2025-12-31"
+						}
+					]
+				},
+				"description": "Get financial summary for the entire year 2025"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Monthly Stats (Current Year)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/monthly-stats",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"monthly-stats"
+					]
+				},
+				"description": "Get monthly statistics for the current year (defaults to 2025)"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Monthly Stats (Specific Year)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/finances/monthly-stats?year=2024",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"finances",
+						"monthly-stats"
+					],
+					"query": [
+						{
+							"key": "year",
+							"value": "2024"
+						}
+					]
+				},
+				"description": "Get monthly statistics for a specific year (2024)"
+			},
+			"response": []
+		}
+	]
+}
