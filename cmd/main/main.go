@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
-	"life-tracker-backend/internal/config"
-	"life-tracker-backend/internal/database"
-	"life-tracker-backend/internal/domain/auth/routes"
-	"life-tracker-backend/internal/middleware"
 	"log"
 	"net/http"
 	"time"
 
+	"life-tracker-backend/internal/config"
+	"life-tracker-backend/internal/database"
+	"life-tracker-backend/internal/domain/auth/routes"
+	"life-tracker-backend/internal/middleware"
+
 	activityRoutes "life-tracker-backend/internal/domain/activity/routes"
 
 	userRoutes "life-tracker-backend/internal/domain/user/routes"
+
+	financeRoutes "life-tracker-backend/internal/domain/finance/routes"
 
 	"github.com/gin-gonic/gin"
 )
@@ -81,6 +84,9 @@ func main() {
 
 			// Activity routes
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
+
+			// Finance routes
+			financeRoutes.RegisterFinanceRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
 		}
 	}
 
