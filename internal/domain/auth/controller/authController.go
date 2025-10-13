@@ -1,9 +1,10 @@
 package controller
 
 import (
+	"net/http"
+
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/service"
-	"net/http"
 
 	userService "life-tracker-backend/internal/domain/user/service"
 

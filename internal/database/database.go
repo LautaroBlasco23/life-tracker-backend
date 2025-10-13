@@ -1,8 +1,9 @@
 package database
 
 import (
-	"life-tracker-backend/internal/config"
 	"log"
+
+	"life-tracker-backend/internal/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"

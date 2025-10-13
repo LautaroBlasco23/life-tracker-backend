@@ -3,10 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/model"
-	"time"
 
 	userModel "life-tracker-backend/internal/domain/user/model"
 
@@ -165,7 +166,7 @@ func (s *AuthService) generateTokens(userID uint, email string) (*dto.TokenRespo
 }
 
 func (s *AuthService) validateToken(tokenString string) (*JWTClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(_ *jwt.Token) (interface{}, error) {
 		return []byte(s.cfg.JWTSecret), nil
 	})
 	if err != nil {

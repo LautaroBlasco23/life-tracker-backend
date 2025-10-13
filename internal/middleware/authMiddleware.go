@@ -39,7 +39,7 @@ func JWTAuthMiddleware(secretKey string) gin.HandlerFunc {
 		tokenString := tokenParts[1]
 
 		// Parse and validate token
-		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(_ *jwt.Token) (interface{}, error) {
 			return []byte(secretKey), nil
 		})
 		if err != nil {

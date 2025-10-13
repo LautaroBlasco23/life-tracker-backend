@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"life-tracker-backend/internal/domain/activity/dto"
-	"life-tracker-backend/internal/domain/activity/model"
+	"log"
 	"strings"
 	"time"
+
+	"life-tracker-backend/internal/domain/activity/dto"
+	"life-tracker-backend/internal/domain/activity/model"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -251,7 +253,11 @@ func (s *ActivityService) GetActivityRecords(userID, activityID uint, limit int)
 	if err != nil {
 		return nil, errors.New("failed to fetch activity records")
 	}
-	defer cursor.Close(context.Background())
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
 
 	var records []model.ActivityRecord
 	if err := cursor.All(context.Background(), &records); err != nil {
@@ -387,7 +393,11 @@ func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error)
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(context.Background())
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
 
 	completions := make(map[uint]int)
 	for cursor.Next(context.Background()) {
@@ -449,7 +459,11 @@ func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint)
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(context.Background())
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
 
 	metadata := &CompletionMetadata{
 		MonthlyCompletions: make(map[uint]time.Time),

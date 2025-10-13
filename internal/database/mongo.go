@@ -3,8 +3,9 @@ package database
 import (
 	"context"
 	"fmt"
-	"life-tracker-backend/internal/config"
 	"time"
+
+	"life-tracker-backend/internal/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

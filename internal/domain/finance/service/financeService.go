@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"life-tracker-backend/internal/domain/finance/dto"
@@ -167,7 +168,11 @@ func (s *FinanceService) GetTransactions(userID uint, transactionType *string, s
 	if err != nil {
 		return nil, errors.New("failed to fetch transactions")
 	}
-	defer cursor.Close(context.Background())
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
 
 	var transactions []model.Transaction
 	if err := cursor.All(context.Background(), &transactions); err != nil {
@@ -328,7 +333,11 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 	if err != nil {
 		return nil, errors.New("failed to generate summary")
 	}
-	defer cursor.Close(context.Background())
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
 
 	var categories []model.Category
 	if err := s.db.Find(&categories).Error; err != nil {
@@ -434,7 +443,11 @@ func (s *FinanceService) GetMonthlyStats(userID uint, year int) ([]*dto.MonthlyS
 	if err != nil {
 		return nil, errors.New("failed to generate monthly stats")
 	}
-	defer cursor.Close(context.Background())
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
 
 	monthlyData := make(map[int]struct {
 		income  float64

@@ -55,12 +55,12 @@ type TransactionResponse struct {
 }
 
 type FinanceSummaryResponse struct {
-	TotalIncome       float64                         `json:"totalIncome"`
-	TotalOutcome      float64                         `json:"totalOutcome"`
-	Balance           float64                         `json:"balance"`
-	IncomeByCategory  []CategorySummary               `json:"incomeByCategory"`
-	OutcomeByCategory []CategorySummary               `json:"outcomeByCategory"`
-	Period            string                          `json:"period"`
+	TotalIncome       float64           `json:"totalIncome"`
+	TotalOutcome      float64           `json:"totalOutcome"`
+	Balance           float64           `json:"balance"`
+	IncomeByCategory  []CategorySummary `json:"incomeByCategory"`
+	OutcomeByCategory []CategorySummary `json:"outcomeByCategory"`
+	Period            string            `json:"period"`
 }
 
 type CategorySummary struct {

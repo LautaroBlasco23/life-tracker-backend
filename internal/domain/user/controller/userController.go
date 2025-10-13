@@ -2,10 +2,11 @@ package controller
 
 import (
 	"errors"
-	"life-tracker-backend/internal/domain/user/dto"
-	"life-tracker-backend/internal/domain/user/service"
 	"net/http"
 	"strconv"
+
+	"life-tracker-backend/internal/domain/user/dto"
+	"life-tracker-backend/internal/domain/user/service"
 
 	"github.com/gin-gonic/gin"
 )

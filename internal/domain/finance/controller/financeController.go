@@ -2,11 +2,12 @@ package controller
 
 import (
 	"errors"
-	"life-tracker-backend/internal/domain/finance/dto"
-	"life-tracker-backend/internal/domain/finance/service"
 	"net/http"
 	"strconv"
 	"time"
+
+	"life-tracker-backend/internal/domain/finance/dto"
+	"life-tracker-backend/internal/domain/finance/service"
 
 	"github.com/gin-gonic/gin"
 )

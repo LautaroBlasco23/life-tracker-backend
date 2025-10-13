@@ -3,8 +3,9 @@ package model
 import (
 	"database/sql/driver"
 	"fmt"
-	"life-tracker-backend/internal/domain/activity/dto"
 	"time"
+
+	"life-tracker-backend/internal/domain/activity/dto"
 
 	"gorm.io/gorm"
 )

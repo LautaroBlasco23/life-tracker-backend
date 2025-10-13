@@ -1,8 +1,9 @@
 package model
 
 import (
-	"life-tracker-backend/internal/domain/activity/dto"
 	"time"
+
+	"life-tracker-backend/internal/domain/activity/dto"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

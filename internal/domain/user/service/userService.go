@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/model"
 

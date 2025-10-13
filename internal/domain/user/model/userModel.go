@@ -1,8 +1,9 @@
 package model
 
 import (
-	"life-tracker-backend/internal/domain/user/dto"
 	"time"
+
+	"life-tracker-backend/internal/domain/user/dto"
 
 	"gorm.io/gorm"
 )
