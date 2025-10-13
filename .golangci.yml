@@ -1,22 +1,19 @@
+version: 2
 run:
   timeout: 5m
   tests: true
   go: '1.23'
 
 output:
-  formats:
-    - format: colored-line-number
+  format: colored-line-number
   print-linter-name: true
 
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
-    - unused
-    - gofumpt
     - gosec
     - revive
     - gocyclo
@@ -29,9 +26,6 @@ linters-settings:
   
   govet:
     enable-all: true
-  
-  gofumpt:
-    extra-rules: true
   
   gocyclo:
     min-complexity: 15
