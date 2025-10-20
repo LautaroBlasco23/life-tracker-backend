@@ -28,6 +28,8 @@ type Config struct {
 	JWTSecret        string
 	JWTExpiry        string
 	JWTRefreshExpiry string
+
+	ImageStoreAddress string
 }
 
 func Load() *Config {
@@ -64,6 +66,8 @@ func Load() *Config {
 		JWTSecret:        getEnv("JWT_SECRET", "default-secret-change-this"),
 		JWTExpiry:        getEnv("JWT_EXPIRY", "24h"),
 		JWTRefreshExpiry: getEnv("JWT_REFRESH_EXPIRY", "168h"),
+
+		ImageStoreAddress: getEnv("IMAGESTORE_ADDRESS", "localhost:50051"),
 	}
 }
 
