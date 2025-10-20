@@ -12,6 +12,7 @@ type User struct {
 	CreatedAt     time.Time      `json:"createdAt"`
 	UpdatedAt     time.Time      `json:"updatedAt"`
 	ProfilePicURL *string        `json:"profilePicUrl,omitempty"`
+	ThumbnailURL  *string        `json:"thumbnailUrl,omitempty"`
 	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
 	FirstName     string         `json:"firstName" gorm:"not null"`
 	LastName      string         `json:"lastName" gorm:"not null"`
@@ -26,6 +27,7 @@ func (u *User) ToResponse() *dto.UserResponse {
 		LastName:      u.LastName,
 		Email:         u.Email,
 		ProfilePicURL: u.ProfilePicURL,
+		ThumbnailURL:  u.ThumbnailURL,
 		CreatedAt:     u.CreatedAt,
 		UpdatedAt:     u.UpdatedAt,
 	}
