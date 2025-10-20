@@ -151,3 +151,44 @@ func (c *UserController) DeleteUser(ctx *gin.Context) {
 		"message": "User deleted successfully",
 	})
 }
+
+// Image related methods
+func (c *UserController) UploadProfileImage(ctx *gin.Context) {
+	userID, err := getUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	file, err := ctx.FormFile("image")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "No image file provided"})
+		return
+	}
+
+	user, err := c.userService.UploadProfileImage(ctx.Request.Context(), userID, file)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Profile image uploaded successfully",
+		"data":    user,
+	})
+}
+
+func (c *UserController) DeleteProfileImage(ctx *gin.Context) {
+	userID, err := getUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := c.userService.DeleteProfileImage(ctx.Request.Context(), userID); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Profile image deleted successfully"})
+}
