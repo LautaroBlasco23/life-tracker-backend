@@ -9,6 +9,7 @@ import (
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/database"
 	"life-tracker-backend/internal/domain/auth/routes"
+	"life-tracker-backend/internal/infrastructure/imagestore"
 	"life-tracker-backend/internal/middleware"
 
 	activityRoutes "life-tracker-backend/internal/domain/activity/routes"
@@ -32,6 +33,15 @@ func main() {
 
 	log.Println("✅ Connected to PostgreSQL successfully")
 	log.Println("✅ Connected to MongoDB successfully")
+
+	// Image Service
+	imageClient, err := imagestore.NewClient(cfg.ImageStoreAddress)
+	if err != nil {
+		log.Fatal("Failed to connect to imagestore:", err)
+	}
+	defer imageClient.Close()
+
+	log.Println("✅ Connected to ImageStore service")
 
 	// Set Gin mode
 	gin.SetMode(cfg.GinMode)
@@ -73,14 +83,14 @@ func main() {
 	api := r.Group("/api")
 	{
 		// Auth routes (public)
-		routes.RegisterAuthRoutes(api, dbs.PostgreSQL, cfg)
+		routes.RegisterAuthRoutes(api, dbs.PostgreSQL, cfg, imageClient)
 
 		// Protected routes
 		protected := api.Group("")
 		protected.Use(middleware.JWTAuthMiddleware(cfg.JWTSecret))
 		{
 			// User routes
-			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL)
+			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL, imageClient)
 
 			// Activity routes
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
