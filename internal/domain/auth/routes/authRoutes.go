@@ -5,15 +5,16 @@ import (
 	"life-tracker-backend/internal/domain/auth/controller"
 	"life-tracker-backend/internal/domain/auth/service"
 	userService "life-tracker-backend/internal/domain/user/service"
+	"life-tracker-backend/internal/infrastructure/imagestore"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func RegisterAuthRoutes(router *gin.RouterGroup, db *gorm.DB, cfg *config.Config) {
+func RegisterAuthRoutes(router *gin.RouterGroup, db *gorm.DB, cfg *config.Config, imageClient *imagestore.Client) {
 	// Create services
 	authService := service.NewAuthService(db, cfg)
-	userService := userService.NewUserService(db)
+	userService := userService.NewUserService(db, imageClient)
 
 	// Create controller with both services
 	authController := controller.NewAuthController(authService, userService)
