@@ -1,34 +1,21 @@
-ENV ?= development
-ENV_FILE := .env.$(ENV)
-
-.PHONY: help dev dev-watch db-up db-down db-reset docker-up docker-down docker-build \
-        docker-logs code-check clean install-tools
-
-help:
-	@echo "Available commands:"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  install-tools - Install required Go tools"
-	@echo "  code-check    - Format and lint code (run before commit)"
-	@echo ""
-	@echo "Development:"
-	@echo "  dev           - Run the application locally (ENV=dev default)"
-	@echo "  dev-watch     - Run with hot reload (ENV=dev default)"
-	@echo "  clean         - Clean build artifacts"
-	@echo ""
-	@echo "Database:"
-	@echo "  db-up         - Start databases (ENV=dev default)"
-	@echo "  db-down       - Stop databases"
-	@echo "  db-reset      - Reset databases (removes all data)"
-	@echo ""
-	@echo "Docker:"
-	@echo "  docker-up     - Start all services (ENV=production for production)"
-	@echo "  docker-down   - Stop all services"
-	@echo "  docker-build  - Rebuild API image"
-	@echo "  docker-logs   - Show logs"
-
+.PHONY: help install-tools code-check dev dev-watch prod-up prod-down prod-build db-up db-down db-remove
 GOBIN := $(shell go env GOPATH)/bin
 export PATH := $(GOBIN):$(PATH)
+
+help:
+	@echo "📋 Available commands:"
+	@echo ""
+	@echo "  install-tools      Install required Go tools (gofumpt, golangci-lint, air)"
+	@echo "  code-check         Format and lint code"
+	@echo "  dev                Start application in development mode"
+	@echo "  dev-watch          Start application with hot reload"
+	@echo "  prod-up            Start all services in production (docker-compose)"
+	@echo "  prod-down          Stop production services"
+	@echo "  prod-build         Build production API image"
+	@echo "  db-up              Start databases with default values"
+	@echo "  db-down            Stop databases"
+	@echo "  db-remove          Remove databases and volumes"
+	@echo ""
 
 install-tools:
 	@echo "📦 Installing Go tools..."
@@ -36,58 +23,41 @@ install-tools:
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@go install github.com/air-verse/air@latest
 	@echo "✅ Tools installed!"
-
 code-check:
 	@echo "🔍 Formatting and linting..."
 	@$(GOBIN)/gofumpt -l -w .
 	@$(GOBIN)/golangci-lint run --fix ./...
 	@echo "✅ Code check complete!"
-
-clean:
-	@echo "🧹 Cleaning..."
-	@rm -rf bin/
-	@go clean -cache
-	@echo "✅ Done!"
-
 dev:
-	@echo "🚀 Starting application with $(ENV) environment..."
-	@set -a && . $(ENV_FILE) && set +a && go run cmd/main/main.go
-
+	@[ -f .env.development ] || (echo "❌ .env.development not found"; exit 1)
+	@echo "🚀 Starting application..."
+	@sh -c '. .env.development && go run cmd/main/main.go'
 dev-watch:
-	@echo "🔄 Starting with hot reload ($(ENV) environment)..."
-	@ENV_FILE=$(ENV_FILE) $(GOBIN)/air -c .air.toml
-
-docker-up:
-	@echo "🚀 Starting all services with $(ENV) environment..."
-	@docker-compose --env-file $(ENV_FILE) up -d
+	@[ -f .env.development ] || (echo "❌ .env.development not found"; exit 1)
+	@echo "🔄 Starting with hot reload..."
+	@sh -c '. .env.development && ENV_FILE=.env.development $(GOBIN)/air -c .air.toml'
+prod-up:
+	@[ -f .env.production ] || (echo "❌ .env.production not found"; exit 1)
+	@echo "🚀 Starting all services with production environment..."
+	@docker-compose --env-file .env.production up -d
 	@sleep 10
 	@echo "✅ Running at http://localhost:8080"
-
-docker-down:
+prod-down:
 	@echo "⏹️  Stopping services..."
-	@docker-compose --env-file $(ENV_FILE) down
-
-docker-build:
-	@echo "🏗️  Building API image ($(ENV) environment)..."
-	@docker-compose --env-file $(ENV_FILE) build api
-
-docker-logs:
-	@echo "📋 Showing logs..."
-	@docker-compose --env-file $(ENV_FILE) logs -f api
-
+	@docker-compose down
+prod-build:
+	@[ -f .env.production ] || (echo "❌ .env.production not found"; exit 1)
+	@echo "🏗️  Building API image..."
+	@docker-compose build api
 db-up:
-	@echo "🗄️  Starting databases ($(ENV) environment)..."
-	@docker-compose --env-file $(ENV_FILE) up -d postgres mongodb
+	@echo "🗄️  Starting databases with default values..."
+	@docker-compose -f docker-compose.db.yml up -d
 	@sleep 5
 	@echo "✅ Databases ready!"
-
 db-down:
 	@echo "⏹️  Stopping databases..."
-	@docker-compose --env-file $(ENV_FILE) stop postgres mongodb
-
-db-reset:
-	@echo "🔄 Resetting databases ($(ENV) environment)..."
-	@docker-compose --env-file $(ENV_FILE) down -v
-	@docker-compose --env-file $(ENV_FILE) up -d postgres mongodb
-	@sleep 5
-	@echo "✅ Databases reset!"
+	@docker-compose -f docker-compose.db.yml stop
+db-remove:
+	@echo "🔄 Removing databases..."
+	@docker-compose -f docker-compose.db.yml down -v
+	@echo "✅ Databases removed!"
