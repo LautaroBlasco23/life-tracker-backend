@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	pb "github.com/lautaroblasco23/imagestore/proto/imagestore/v1"
 	"google.golang.org/grpc"
@@ -18,17 +17,12 @@ type Client struct {
 }
 
 func NewClient(address string) (*Client, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, err := grpc.DialContext(
-		ctx,
+	conn, err := grpc.NewClient(
 		address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to imagestore: %w", err)
+		return nil, fmt.Errorf("failed to create imagestore client: %w", err)
 	}
 
 	return &Client{
@@ -44,7 +38,6 @@ func (c *Client) UploadProfileImage(ctx context.Context, userID uint, imageData 
 	}
 
 	contentType := getContentType(filename)
-
 	metadata := &pb.ImageMetadataInput{
 		UserId:      fmt.Sprintf("%d", userID),
 		Filename:    filename,
