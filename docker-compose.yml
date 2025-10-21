@@ -22,11 +22,12 @@ services:
       start_period: 40s
     networks:
       - golang_api_network
-
   postgres:
     image: postgres:15-alpine
     container_name: golang_api_postgres
     restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -43,7 +44,6 @@ services:
       start_period: 10s
     networks:
       - golang_api_network
-
   mongodb:
     image: mongo:7.0
     container_name: golang_api_mongodb
@@ -67,7 +67,6 @@ services:
       start_period: 10s
     networks:
       - golang_api_network
-
 volumes:
   postgres_data:
     driver: local
@@ -75,7 +74,6 @@ volumes:
     driver: local
   mongodb_config:
     driver: local
-
 networks:
   golang_api_network:
     driver: bridge
