@@ -29,13 +29,11 @@ code-check:
 	@$(GOBIN)/golangci-lint run --fix ./...
 	@echo "✅ Code check complete!"
 dev:
-	@[ -f .env.development ] || (echo "❌ .env.development not found"; exit 1)
 	@echo "🚀 Starting application..."
-	@sh -c '. .env.development && go run cmd/main/main.go'
+	@go run cmd/main/main.go
 dev-watch:
-	@[ -f .env.development ] || (echo "❌ .env.development not found"; exit 1)
 	@echo "🔄 Starting with hot reload..."
-	@sh -c '. .env.development && ENV_FILE=.env.development $(GOBIN)/air -c .air.toml'
+	@ENV_FILE=.env.development $(GOBIN)/air -c .air.toml
 prod-up:
 	@[ -f .env.production ] || (echo "❌ .env.production not found"; exit 1)
 	@echo "🚀 Starting all services with production environment..."
