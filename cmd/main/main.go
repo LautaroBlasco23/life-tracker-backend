@@ -13,34 +13,40 @@ import (
 	"life-tracker-backend/internal/middleware"
 
 	activityRoutes "life-tracker-backend/internal/domain/activity/routes"
-
-	userRoutes "life-tracker-backend/internal/domain/user/routes"
-
 	financeRoutes "life-tracker-backend/internal/domain/finance/routes"
+	userRoutes "life-tracker-backend/internal/domain/user/routes"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	// Load configuration
 	cfg := config.Load()
 
 	// Initialize databases
 	dbs, err := database.Initialize(cfg)
 	if err != nil {
-		log.Fatal("Failed to connect to databases:", err)
+		return fmt.Errorf("failed to connect to databases: %w", err)
 	}
-
 	log.Println("✅ Connected to PostgreSQL successfully")
 	log.Println("✅ Connected to MongoDB successfully")
 
 	// Image Service
 	imageClient, err := imagestore.NewClient(cfg.ImageStoreAddress)
 	if err != nil {
-		log.Fatal("Failed to connect to imagestore:", err)
+		return fmt.Errorf("failed to connect to imagestore: %w", err)
 	}
-	defer imageClient.Close()
-
+	defer func() {
+		if closeErr := imageClient.Close(); closeErr != nil {
+			log.Printf("Error closing image client: %v", closeErr)
+		}
+	}()
 	log.Println("✅ Connected to ImageStore service")
 
 	// Set Gin mode
@@ -104,7 +110,10 @@ func main() {
 	port := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("🚀 Server starting on port %s", cfg.Port)
 	log.Printf("📊 Health check available at: http://localhost%s/health", port)
+
 	if err := r.Run(port); err != nil {
-		log.Fatal("Failed to start server:", err)
+		return fmt.Errorf("failed to start server: %w", err)
 	}
+
+	return nil
 }
