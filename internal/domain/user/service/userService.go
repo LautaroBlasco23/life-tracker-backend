@@ -105,7 +105,11 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 	if err != nil {
 		return nil, errors.New("failed to open uploaded file")
 	}
-	defer src.Close()
+	defer func() {
+		if closeErr := src.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
 
 	imageData, err := io.ReadAll(src)
 	if err != nil {
