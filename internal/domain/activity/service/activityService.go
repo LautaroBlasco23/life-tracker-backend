@@ -11,6 +11,7 @@ import (
 
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/model"
+	"life-tracker-backend/internal/domain/monitoring"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -58,6 +59,8 @@ func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityReq
 	if err := s.db.Create(&activity).Error; err != nil {
 		return nil, errors.New("failed to create activity")
 	}
+
+	monitoring.ActivitiesCreated.WithLabelValues(string(activity.Frequency)).Inc()
 
 	return activity.ToResponse(), nil
 }
@@ -203,6 +206,9 @@ func (s *ActivityService) DeleteActivity(userID, activityID uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("activity not found")
 	}
+
+	monitoring.ActivitiesDeleted.Inc()
+
 	return nil
 }
 
@@ -231,6 +237,8 @@ func (s *ActivityService) RecordActivity(userID, activityID uint, req *dto.Recor
 	if err != nil {
 		return nil, errors.New("failed to record activity completion")
 	}
+
+	monitoring.ActivityCompletions.WithLabelValues(string(activity.Frequency)).Inc()
 
 	return record.ToResponse(), nil
 }
@@ -299,6 +307,10 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 		LongestStreak:    0,
 		CompletionRate:   0,
 		RecentRecords:    recentRecords,
+	}
+
+	if stats.CurrentStreak > 0 {
+		monitoring.ActivityStreakDays.Observe(float64(stats.CurrentStreak))
 	}
 
 	return stats, nil

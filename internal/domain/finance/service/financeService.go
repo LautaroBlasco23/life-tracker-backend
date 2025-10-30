@@ -9,6 +9,7 @@ import (
 
 	"life-tracker-backend/internal/domain/finance/dto"
 	"life-tracker-backend/internal/domain/finance/model"
+	"life-tracker-backend/internal/domain/monitoring"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -136,6 +137,16 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 	if err != nil {
 		return nil, errors.New("failed to create transaction")
 	}
+
+	monitoring.TransactionsCreated.WithLabelValues(
+		string(transaction.Type),
+		category.Name,
+	).Inc()
+
+	monitoring.TransactionAmount.WithLabelValues(
+		string(transaction.Type),
+		category.Name,
+	).Observe(transaction.Amount)
 
 	return transaction.ToResponse(category.Name, subcategory.Name), nil
 }
@@ -300,6 +311,8 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 	if result.DeletedCount == 0 {
 		return errors.New("transaction not found")
 	}
+
+	monitoring.TransactionsDeleted.Inc()
 
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/model"
 	"life-tracker-backend/internal/infrastructure/imagestore"
+	"life-tracker-backend/internal/domain/monitoring"
 
 	"gorm.io/gorm"
 )
@@ -92,6 +93,9 @@ func (s *UserService) DeleteUser(userID uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("user not found")
 	}
+
+	monitoring.ActiveUsers.Dec()
+
 	return nil
 }
 
