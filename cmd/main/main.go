@@ -17,6 +17,7 @@ import (
 	userRoutes "life-tracker-backend/internal/domain/user/routes"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -59,6 +60,12 @@ func run() error {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORSMiddleware())
+
+	// Metrics middleware
+	r.Use(middleware.PrometheusMiddleware())
+
+	// monitoring metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Health check endpoint with database status
 	r.GET("/health", func(c *gin.Context) {
@@ -109,7 +116,8 @@ func run() error {
 	// Start server
 	port := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("🚀 Server starting on port %s", cfg.Port)
-	log.Printf("📊 Health check available at: http://localhost%s/health", port)
+	log.Print("📊 Metrics available at /metrics")
+	log.Print("📊 Health check available at: /health")
 
 	if err := r.Run(port); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
