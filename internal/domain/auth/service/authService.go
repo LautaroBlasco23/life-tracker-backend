@@ -8,6 +8,7 @@ import (
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/model"
+	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	userModel "life-tracker-backend/internal/domain/user/model"
 
@@ -38,6 +39,7 @@ func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
 func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, uint, error) {
 	var existingAuth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&existingAuth).Error; err == nil {
+		monitoring.AuthAttempts.WithLabelValues("failed_duplicate").Inc()
 		return nil, 0, errors.New("user already exists")
 	}
 
@@ -72,6 +74,9 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 
 	tx.Commit()
 
+	monitoring.UserRegistrations.Inc()
+	monitoring.ActiveUsers.Inc()
+
 	tokens, err := s.generateTokens(user.ID, user.Email)
 	if err != nil {
 		return nil, 0, err
@@ -83,12 +88,16 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, error) {
 	var auth model.Auth
 	if err := s.db.Where("email = ?", req.Email).First(&auth).Error; err != nil {
+		monitoring.AuthAttempts.WithLabelValues("failed_not_found").Inc()
 		return nil, 0, errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
+		monitoring.AuthAttempts.WithLabelValues("failed_password").Inc()
 		return nil, 0, errors.New("invalid credentials")
 	}
+
+	monitoring.AuthAttempts.WithLabelValues("success").Inc()
 
 	tokens, err := s.generateTokens(auth.UserID, auth.Email)
 	if err != nil {

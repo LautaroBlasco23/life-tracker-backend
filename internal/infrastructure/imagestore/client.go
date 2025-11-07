@@ -44,7 +44,7 @@ func (c *Client) UploadProfileImage(ctx context.Context, userID uint, imageData 
 		ContentType: contentType,
 	}
 
-	if err := stream.Send(&pb.UploadImageRequest{
+	if err = stream.Send(&pb.UploadImageRequest{
 		Data: &pb.UploadImageRequest_Metadata{
 			Metadata: metadata,
 		},
@@ -59,7 +59,7 @@ func (c *Client) UploadProfileImage(ctx context.Context, userID uint, imageData 
 			end = len(imageData)
 		}
 
-		if err := stream.Send(&pb.UploadImageRequest{
+		if err = stream.Send(&pb.UploadImageRequest{
 			Data: &pb.UploadImageRequest_Chunk{
 				Chunk: imageData[i:end],
 			},

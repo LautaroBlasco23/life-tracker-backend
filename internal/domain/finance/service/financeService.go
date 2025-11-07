@@ -9,6 +9,7 @@ import (
 
 	"life-tracker-backend/internal/domain/finance/dto"
 	"life-tracker-backend/internal/domain/finance/model"
+	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -137,6 +138,16 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		return nil, errors.New("failed to create transaction")
 	}
 
+	monitoring.TransactionsCreated.WithLabelValues(
+		string(transaction.Type),
+		category.Name,
+	).Inc()
+
+	monitoring.TransactionAmount.WithLabelValues(
+		string(transaction.Type),
+		category.Name,
+	).Observe(transaction.Amount)
+
 	return transaction.ToResponse(category.Name, subcategory.Name), nil
 }
 
@@ -255,7 +266,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 	}
 	if req.CategoryID != nil {
 		var category model.Category
-		if err := s.db.Where("id = ?", *req.CategoryID).First(&category).Error; err != nil {
+		if err = s.db.Where("id = ?", *req.CategoryID).First(&category).Error; err != nil {
 			return nil, errors.New("category not found")
 		}
 		updates["categoryId"] = *req.CategoryID
@@ -266,7 +277,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 			catID = *req.CategoryID
 		}
 		var subcategory model.Subcategory
-		if err := s.db.Where("id = ? AND category_id = ?", *req.SubcategoryID, catID).First(&subcategory).Error; err != nil {
+		if err = s.db.Where("id = ? AND category_id = ?", *req.SubcategoryID, catID).First(&subcategory).Error; err != nil {
 			return nil, errors.New("subcategory not found or doesn't belong to category")
 		}
 		updates["subcategoryId"] = *req.SubcategoryID
@@ -300,6 +311,8 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 	if result.DeletedCount == 0 {
 		return errors.New("transaction not found")
 	}
+
+	monitoring.TransactionsDeleted.Inc()
 
 	return nil
 }
@@ -458,8 +471,8 @@ func (s *FinanceService) GetMonthlyStats(userID uint, year int) ([]*dto.MonthlyS
 	for cursor.Next(context.Background()) {
 		var result struct {
 			ID struct {
-				Month int    `bson:"month"`
 				Type  string `bson:"type"`
+				Month int    `bson:"month"`
 			} `bson:"_id"`
 			Total float64 `bson:"total"`
 			Count int64   `bson:"count"`

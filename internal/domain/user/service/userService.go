@@ -12,6 +12,7 @@ import (
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/model"
 	"life-tracker-backend/internal/infrastructure/imagestore"
+	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	"gorm.io/gorm"
 )
@@ -92,6 +93,9 @@ func (s *UserService) DeleteUser(userID uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("user not found")
 	}
+
+	monitoring.ActiveUsers.Dec()
+
 	return nil
 }
 
@@ -117,7 +121,7 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 	}
 
 	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
+	if err = s.db.First(&user, userID).Error; err != nil {
 		return nil, errors.New("user not found")
 	}
 
@@ -129,7 +133,10 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 	if user.ProfilePicURL != nil && *user.ProfilePicURL != "" {
 		oldImageID := s.extractImageIDFromURL(*user.ProfilePicURL)
 		if oldImageID != "" {
-			_ = s.imageClient.DeleteImage(ctx, oldImageID)
+			err = s.imageClient.DeleteImage(ctx, oldImageID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to delete the old image: %w", err)
+			}
 		}
 	}
 
