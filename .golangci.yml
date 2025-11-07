@@ -1,12 +1,12 @@
-version: 2
 run:
   timeout: 5m
   tests: true
   go: '1.23'
+
 output:
-  format: colored-line-number
-  path: stdout
+  formats: colored-line-number
   print-linter-name: true
+
 linters:
   enable:
     - errcheck
@@ -16,6 +16,7 @@ linters:
     - gosec
     - gocyclo
     - gocritic
+
 linters-settings:
   errcheck:
     check-type-assertions: true
@@ -32,11 +33,12 @@ linters-settings:
       - diagnostic
       - performance
     disabled-checks:
-      - unnamedResult
+      - rangeValCopy
   
   gosec:
     excludes:
       - G404
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
