@@ -3,31 +3,31 @@ package dto
 import "time"
 
 type CategoryResponse struct {
-	ID            uint                  `json:"id"`
+	CreatedAt     time.Time             `json:"createdAt"`
+	UpdatedAt     time.Time             `json:"updatedAt"`
 	Name          string                `json:"name"`
 	Type          string                `json:"type"`
 	Icon          string                `json:"icon,omitempty"`
 	Subcategories []SubcategoryResponse `json:"subcategories,omitempty"`
-	CreatedAt     time.Time             `json:"createdAt"`
-	UpdatedAt     time.Time             `json:"updatedAt"`
+	ID            uint                  `json:"id"`
 }
 
 type SubcategoryResponse struct {
-	ID         uint      `json:"id"`
-	CategoryID uint      `json:"categoryId"`
-	Name       string    `json:"name"`
-	Icon       string    `json:"icon,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
+	Name       string    `json:"name"`
+	Icon       string    `json:"icon,omitempty"`
+	ID         uint      `json:"id"`
+	CategoryID uint      `json:"categoryId"`
 }
 
 type CreateTransactionRequest struct {
+	Date          time.Time `json:"date,omitempty"`
 	Type          string    `json:"type" binding:"required,oneof=income outcome"`
+	Description   string    `json:"description,omitempty" binding:"max=500"`
 	Amount        float64   `json:"amount" binding:"required,gt=0"`
 	CategoryID    uint      `json:"categoryId" binding:"required"`
 	SubcategoryID uint      `json:"subcategoryId" binding:"required"`
-	Description   string    `json:"description,omitempty" binding:"max=500"`
-	Date          time.Time `json:"date,omitempty"`
 }
 
 type UpdateTransactionRequest struct {
@@ -40,32 +40,32 @@ type UpdateTransactionRequest struct {
 }
 
 type TransactionResponse struct {
-	ID              string    `json:"id"`
-	UserID          uint      `json:"userId"`
-	Type            string    `json:"type"`
-	Amount          float64   `json:"amount"`
-	CategoryID      uint      `json:"categoryId"`
-	CategoryName    string    `json:"categoryName"`
-	SubcategoryID   uint      `json:"subcategoryId"`
-	SubcategoryName string    `json:"subcategoryName"`
-	Description     string    `json:"description,omitempty"`
 	Date            time.Time `json:"date"`
 	CreatedAt       time.Time `json:"createdAt"`
 	UpdatedAt       time.Time `json:"updatedAt"`
+	ID              string    `json:"id"`
+	Type            string    `json:"type"`
+	CategoryName    string    `json:"categoryName"`
+	SubcategoryName string    `json:"subcategoryName"`
+	Description     string    `json:"description,omitempty"`
+	UserID          uint      `json:"userId"`
+	Amount          float64   `json:"amount"`
+	CategoryID      uint      `json:"categoryId"`
+	SubcategoryID   uint      `json:"subcategoryId"`
 }
 
 type FinanceSummaryResponse struct {
+	Period            string            `json:"period"`
+	IncomeByCategory  []CategorySummary `json:"incomeByCategory"`
+	OutcomeByCategory []CategorySummary `json:"outcomeByCategory"`
 	TotalIncome       float64           `json:"totalIncome"`
 	TotalOutcome      float64           `json:"totalOutcome"`
 	Balance           float64           `json:"balance"`
-	IncomeByCategory  []CategorySummary `json:"incomeByCategory"`
-	OutcomeByCategory []CategorySummary `json:"outcomeByCategory"`
-	Period            string            `json:"period"`
 }
 
 type CategorySummary struct {
-	CategoryID   uint    `json:"categoryId"`
 	CategoryName string  `json:"categoryName"`
+	CategoryID   uint    `json:"categoryId"`
 	Total        float64 `json:"total"`
 	Percentage   float64 `json:"percentage"`
 	Count        int64   `json:"count"`

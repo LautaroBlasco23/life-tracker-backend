@@ -29,24 +29,24 @@ func (t TransactionType) Value() (driver.Value, error) {
 }
 
 type Category struct {
-	ID        uint            `json:"id" gorm:"primaryKey"`
-	Name      string          `json:"name" gorm:"not null;size:100;uniqueIndex"`
-	Type      TransactionType `json:"type" gorm:"not null"`
-	Icon      string          `json:"icon,omitempty" gorm:"size:50"`
 	CreatedAt time.Time       `json:"createdAt"`
 	UpdatedAt time.Time       `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt  `json:"-" gorm:"index"`
+	Name      string          `json:"name" gorm:"not null;size:100;uniqueIndex"`
+	Type      TransactionType `json:"type" gorm:"not null"`
+	Icon      string          `json:"icon,omitempty" gorm:"size:50"`
+	ID        uint            `json:"id" gorm:"primaryKey"`
 }
 
 type Subcategory struct {
-	ID         uint           `json:"id" gorm:"primaryKey"`
-	CategoryID uint           `json:"categoryId" gorm:"not null;index"`
-	Name       string         `json:"name" gorm:"not null;size:100"`
-	Icon       string         `json:"icon,omitempty" gorm:"size:50"`
-	Category   *Category      `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
+	Category   *Category      `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
 	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
+	Name       string         `json:"name" gorm:"not null;size:100"`
+	Icon       string         `json:"icon,omitempty" gorm:"size:50"`
+	ID         uint           `json:"id" gorm:"primaryKey"`
+	CategoryID uint           `json:"categoryId" gorm:"not null;index"`
 }
 
 var SystemCategories = []Category{
