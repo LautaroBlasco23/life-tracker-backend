@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	metrics "life-tracker-backend/internal/domain/monitoring"
+	metrics "life-tracker-backend/internal/infrastructure/monitoring"
 )
 
 func PrometheusMiddleware() gin.HandlerFunc {

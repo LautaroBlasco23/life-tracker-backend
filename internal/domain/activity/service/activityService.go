@@ -11,7 +11,7 @@ import (
 
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/model"
-	"life-tracker-backend/internal/domain/monitoring"
+	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

@@ -8,7 +8,7 @@ import (
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/model"
-	"life-tracker-backend/internal/domain/monitoring"
+	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	userModel "life-tracker-backend/internal/domain/user/model"
 
