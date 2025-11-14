@@ -77,7 +77,7 @@ type Activity struct {
 	ID               uint           `json:"id" gorm:"primaryKey"`
 	UserID           uint           `json:"userId" gorm:"not null;index"`
 	CompletionAmount int            `json:"completionAmount" gorm:"not null;default:1"`
-	IsActive         bool           `json:"isActive" gorm:"default:true"`
+	IsActive         bool           `json:"isActive" gorm:"not null;default:false"`
 }
 
 func (a *Activity) ToResponse() *dto.ActivityResponse {
