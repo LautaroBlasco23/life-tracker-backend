@@ -34,8 +34,8 @@ jobs:
       
       - name: Build Docker image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-backend:latest .
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/lifetracker-backend:latest .
       
       - name: Push image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-backend:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/lifetracker-backend:latest
