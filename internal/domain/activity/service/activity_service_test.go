@@ -96,9 +96,9 @@ func TestCreateActivity(t *testing.T) {
 	service := getTestService(t)
 
 	tests := []struct {
+		req     *dto.CreateActivityRequest
 		name    string
 		userID  uint
-		req     *dto.CreateActivityRequest
 		wantErr bool
 	}{
 		{
@@ -425,9 +425,9 @@ func TestShouldShowToday(t *testing.T) {
 	}
 
 	tests := []struct {
+		setup    func()
 		name     string
 		activity model.Activity
-		setup    func()
 		want     bool
 	}{
 		{

@@ -86,10 +86,10 @@ func TestCreateActivityHandler(t *testing.T) {
 	defer cleanup()
 
 	tests := []struct {
-		name           string
 		body           interface{}
-		expectedStatus int
 		checkResponse  func(*testing.T, map[string]interface{})
+		name           string
+		expectedStatus int
 	}{
 		{
 			name: "valid daily activity",
