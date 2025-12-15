@@ -133,7 +133,7 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 	if user.ProfilePicURL != nil && *user.ProfilePicURL != "" {
 		oldImageID := s.extractImageIDFromURL(*user.ProfilePicURL)
 		if oldImageID != "" {
-			err = s.imageClient.DeleteImage(ctx, oldImageID)
+			err = s.imageClient.DeleteImage(ctx, oldImageID, fmt.Sprintf("%d", userID))
 			if err != nil {
 				return nil, fmt.Errorf("failed to delete the old image: %w", err)
 			}
@@ -162,7 +162,7 @@ func (s *UserService) DeleteProfileImage(ctx context.Context, userID uint) error
 
 	imageID := s.extractImageIDFromURL(*user.ProfilePicURL)
 	if imageID != "" {
-		if err := s.imageClient.DeleteImage(ctx, imageID); err != nil {
+		if err := s.imageClient.DeleteImage(ctx, imageID, fmt.Sprintf("%d", userID)); err != nil {
 			return fmt.Errorf("failed to delete image: %w", err)
 		}
 	}

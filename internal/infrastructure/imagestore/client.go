@@ -76,9 +76,10 @@ func (c *Client) UploadProfileImage(ctx context.Context, userID uint, imageData 
 	return resp.Url, resp.ThumbnailUrl, nil
 }
 
-func (c *Client) DeleteImage(ctx context.Context, imageID string) error {
+func (c *Client) DeleteImage(ctx context.Context, imageID string, userID string) error {
 	_, err := c.client.DeleteImage(ctx, &pb.DeleteImageRequest{
 		ImageId: imageID,
+		UserId:  userID,
 	})
 	return err
 }
