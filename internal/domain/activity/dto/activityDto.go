@@ -61,3 +61,9 @@ type ActivityStatsResponse struct {
 	LongestStreak    int                       `json:"longestStreak"`
 	CompletionRate   float64                   `json:"completionRate"`
 }
+
+type ActivityFilter struct {
+	Frequency    string `form:"frequency"`
+	DayTime      string `form:"day_time"`
+	ScheduledFor string `form:"scheduled_for"`
+}

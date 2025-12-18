@@ -68,19 +68,19 @@ func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 func (c *ActivityController) GetUserActivities(ctx *gin.Context) {
 	userID, err := getActivityUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	includeInactive := ctx.Query("include_inactive") == "true"
+	var filter dto.ActivityFilter
+	if err := ctx.ShouldBindQuery(&filter); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filter parameters"})
+		return
+	}
 
-	activities, err := c.activityService.GetUserActivities(userID, includeInactive)
+	activities, err := c.activityService.GetUserActivitiesFiltered(userID, &filter)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

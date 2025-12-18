@@ -377,29 +377,8 @@ func (s *ActivityService) validateDayFrequency(dayFrequency string) error {
 }
 
 func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error) {
-	collection := s.mongoDB.Collection("activity_records")
-
-	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
-
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"userId": userID,
-				"completionDate": bson.M{
-					"$gte": startOfDay,
-					"$lt":  endOfDay,
-				},
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id":   "$activityId",
-				"count": bson.M{"$sum": 1},
-			},
-		},
-	}
+	return s.getCompletionsForDate(userID, time.Now())
+}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)
 	if err != nil {
@@ -545,4 +524,132 @@ func (s *ActivityService) shouldShowToday(activity *model.Activity, metadata *Co
 	default:
 		return false
 	}
+}
+
+func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.ActivityFilter) ([]*dto.ActivityResponse, error) {
+	query := s.db.Where("user_id = ? AND is_active = ?", userID, true)
+
+	if filter.Frequency != "" {
+		query = query.Where("frequency = ?", filter.Frequency)
+	}
+
+	if filter.DayTime != "" {
+		query = query.Where("day_time = ?", filter.DayTime)
+	}
+
+	var activities []model.Activity
+	if err := query.Find(&activities).Error; err != nil {
+		return nil, errors.New("failed to fetch activities")
+	}
+
+	var targetDate time.Time
+	if filter.ScheduledFor != "" {
+		parsed, err := time.Parse("2006-01-02", filter.ScheduledFor)
+		if err != nil {
+			return nil, errors.New("invalid date format, use YYYY-MM-DD")
+		}
+		targetDate = parsed
+		activities = s.filterByScheduledDate(activities, targetDate)
+	} else {
+		targetDate = time.Now()
+	}
+
+	activityIDs := make([]uint, len(activities))
+	for i := range activities {
+		activityIDs[i] = activities[i].ID
+	}
+
+	completions, _ := s.getCompletionsForDate(userID, targetDate)
+	if completions == nil {
+		completions = make(map[uint]int)
+	}
+
+	responses := make([]*dto.ActivityResponse, len(activities))
+	for i := range activities {
+		responses[i] = activities[i].ToResponseWithCompletions(completions[activities[i].ID])
+	}
+
+	return responses, nil
+}
+
+func (s *ActivityService) getCompletionsForDate(userID uint, date time.Time) (map[uint]int, error) {
+	collection := s.mongoDB.Collection("activity_records")
+
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"userId": userID,
+				"completionDate": bson.M{
+					"$gte": startOfDay,
+					"$lt":  endOfDay,
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id":   "$activityId",
+				"count": bson.M{"$sum": 1},
+			},
+		},
+	}
+
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
+
+	completions := make(map[uint]int)
+	for cursor.Next(context.Background()) {
+		var result struct {
+			ID    uint `bson:"_id"`
+			Count int  `bson:"count"`
+		}
+		if err := cursor.Decode(&result); err != nil {
+			continue
+		}
+		completions[result.ID] = result.Count
+	}
+
+	return completions, nil
+}
+
+func (s *ActivityService) filterByScheduledDate(activities []model.Activity, targetDate time.Time) []model.Activity {
+	var filtered []model.Activity
+	weekday := strings.ToLower(targetDate.Weekday().String())
+
+	for i := range activities {
+		activity := &activities[i]
+		switch activity.Frequency {
+		case model.FrequencyDaily:
+			filtered = append(filtered, *activity)
+
+		case model.FrequencyWeekly:
+			if activity.DayFrequency == "" {
+				continue
+			}
+			var days []string
+			if err := json.Unmarshal([]byte(activity.DayFrequency), &days); err != nil {
+				continue
+			}
+			for _, day := range days {
+				if strings.EqualFold(day, weekday) {
+					filtered = append(filtered, *activity)
+					break
+				}
+			}
+
+		case model.FrequencyMonthly, model.FrequencyOneTime:
+			filtered = append(filtered, *activity)
+		}
+	}
+
+	return filtered
 }
