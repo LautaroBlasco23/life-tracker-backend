@@ -316,7 +316,7 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 	return stats, nil
 }
 
-func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
+func (s *ActivityService) RevertLastCompletion(userID, activityID uint, targetDate *time.Time) error {
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return errors.New("activity not found")
@@ -324,9 +324,14 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint) error {
 
 	collection := s.mongoDB.Collection("activity_records")
 
-	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
+	var startOfDay, endOfDay time.Time
+	if targetDate != nil {
+		startOfDay = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+	} else {
+		now := time.Now()
+		startOfDay = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	}
+	endOfDay = startOfDay.Add(24 * time.Hour)
 
 	filter := bson.M{
 		"activityId": activityID,

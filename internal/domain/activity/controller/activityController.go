@@ -334,29 +334,25 @@ func (c *ActivityController) GetActivityStats(ctx *gin.Context) {
 func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
 	userID, err := getActivityUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
 	idParam := ctx.Param("id")
 	activityID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid activity ID",
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid activity ID"})
 		return
 	}
 
-	if revertErr := c.activityService.RevertLastCompletion(userID, uint(activityID)); revertErr != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": revertErr.Error(),
-		})
+	var req dto.RevertCompletionRequest
+	// Ignore bind error - targetDate is optional
+	_ = ctx.ShouldBindJSON(&req)
+
+	if revertErr := c.activityService.RevertLastCompletion(userID, uint(activityID), req.TargetDate); revertErr != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": revertErr.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Latest completion reverted successfully",
-	})
+	ctx.JSON(http.StatusOK, gin.H{"message": "Latest completion reverted successfully"})
 }

@@ -67,3 +67,7 @@ type ActivityFilter struct {
 	DayTime      string `form:"day_time"`
 	ScheduledFor string `form:"scheduled_for"`
 }
+
+type RevertCompletionRequest struct {
+	TargetDate *time.Time `json:"targetDate,omitempty"`
+}
