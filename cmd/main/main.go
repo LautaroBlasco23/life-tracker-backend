@@ -9,6 +9,7 @@ import (
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/database"
 	"life-tracker-backend/internal/domain/auth/routes"
+	timeRoutes "life-tracker-backend/internal/domain/time/routes"
 	"life-tracker-backend/internal/infrastructure/imagestore"
 	"life-tracker-backend/internal/middleware"
 
@@ -102,14 +103,10 @@ func run() error {
 		protected := api.Group("")
 		protected.Use(middleware.JWTAuthMiddleware(cfg.JWTSecret))
 		{
-			// User routes
 			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL, imageClient)
-
-			// Activity routes
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
-
-			// Finance routes
 			financeRoutes.RegisterFinanceRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
+			timeRoutes.RegisterTimeRoutes(protected, dbs.PostgreSQL)
 		}
 	}
 
