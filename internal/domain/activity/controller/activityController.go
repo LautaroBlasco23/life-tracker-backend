@@ -346,10 +346,8 @@ func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
 	}
 
 	var req dto.RevertCompletionRequest
-	// Ignore bind error - targetDate is optional
-	err = ctx.ShouldBindJSON(&req)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&req); err != nil && err.Error() != "EOF" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
