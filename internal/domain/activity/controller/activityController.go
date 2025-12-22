@@ -347,7 +347,11 @@ func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
 
 	var req dto.RevertCompletionRequest
 	// Ignore bind error - targetDate is optional
-	_ = ctx.ShouldBindJSON(&req)
+	err = ctx.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	if revertErr := c.activityService.RevertLastCompletion(userID, uint(activityID), req.TargetDate); revertErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": revertErr.Error()})
