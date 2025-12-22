@@ -6,10 +6,13 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
 	"life-tracker-backend/internal/config"
+
 	activityModel "life-tracker-backend/internal/domain/activity/model"
 	"life-tracker-backend/internal/domain/auth/model"
 	financeModel "life-tracker-backend/internal/domain/finance/model"
+	timeModel "life-tracker-backend/internal/domain/time/model"
 	userModel "life-tracker-backend/internal/domain/user/model"
 )
 
@@ -18,6 +21,7 @@ func InitializePostgreSQL(cfg *config.Config) (*gorm.DB, error) {
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode,
 	)
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -31,6 +35,7 @@ func InitializePostgreSQL(cfg *config.Config) (*gorm.DB, error) {
 		&activityModel.Activity{},
 		&financeModel.Category{},
 		&financeModel.Subcategory{},
+		&timeModel.TimeRecord{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate PostgreSQL tables: %w", err)
 	}
