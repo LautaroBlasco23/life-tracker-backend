@@ -73,7 +73,7 @@ func (c *ActivityController) GetUserActivities(ctx *gin.Context) {
 	}
 
 	var filter dto.ActivityFilter
-	if err := ctx.ShouldBindQuery(&filter); err != nil {
+	if err = ctx.ShouldBindQuery(&filter); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filter parameters"})
 		return
 	}

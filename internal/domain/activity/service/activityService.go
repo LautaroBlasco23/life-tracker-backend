@@ -380,31 +380,6 @@ func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error)
 	return s.getCompletionsForDate(userID, time.Now())
 }
 
-	cursor, err := collection.Aggregate(context.Background(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := cursor.Close(context.Background()); err != nil {
-			log.Printf("failed to close cursor: %v", err)
-		}
-	}()
-
-	completions := make(map[uint]int)
-	for cursor.Next(context.Background()) {
-		var result struct {
-			ID    uint `bson:"_id"`
-			Count int  `bson:"count"`
-		}
-		if err := cursor.Decode(&result); err != nil {
-			continue
-		}
-		completions[result.ID] = result.Count
-	}
-
-	return completions, nil
-}
-
 func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint) (*CompletionMetadata, error) {
 	collection := s.mongoDB.Collection("activity_records")
 
@@ -559,7 +534,10 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 		activityIDs[i] = activities[i].ID
 	}
 
-	completions, _ := s.getCompletionsForDate(userID, targetDate)
+	completions, err := s.getCompletionsForDate(userID, targetDate)
+	if err != nil {
+		return nil, err
+	}
 	if completions == nil {
 		completions = make(map[uint]int)
 	}
