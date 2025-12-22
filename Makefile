@@ -40,7 +40,7 @@ help:
 install-tools:
 	@echo "📦 Installing Go tools..."
 	@go install mvdan.cc/gofumpt@latest
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.2
 	@go install github.com/air-verse/air@latest
 	@go install gotest.tools/gotestsum@latest
 	@echo "✅ Tools installed!"

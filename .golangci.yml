@@ -1,12 +1,7 @@
+version: "2"
 run:
   timeout: 5m
-  tests: true
-  go: '1.23'
-
-output:
-  formats: colored-line-number
-  print-linter-name: true
-
+  tests: false
 linters:
   enable:
     - errcheck
@@ -16,35 +11,19 @@ linters:
     - gosec
     - gocyclo
     - gocritic
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  
-  govet:
-    enable-all: true
-  
-  gocyclo:
-    min-complexity: 15
-  
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-    disabled-checks:
-      - rangeValCopy
-  
-  gosec:
-    excludes:
-      - G404
-
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    govet:
+      enable-all: true
+    gocyclo:
+      min-complexity: 15
+    gocritic:
+      enabled-tags: [diagnostic, performance]
+      disabled-checks: [rangeValCopy]
+    gosec:
+      excludes: [G404]
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - gocyclo
