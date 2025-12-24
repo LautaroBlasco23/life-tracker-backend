@@ -545,7 +545,7 @@ func TestRevertLastCompletion(t *testing.T) {
 		_, err := collection.InsertOne(context.Background(), record)
 		require.NoError(t, err)
 
-		err = service.RevertLastCompletion(userID, activity.ID)
+		err = service.RevertLastCompletion(userID, activity.ID, nil)
 		assert.NoError(t, err)
 
 		count, err := collection.CountDocuments(context.Background(), bson.M{"_id": record.ID})
@@ -554,7 +554,7 @@ func TestRevertLastCompletion(t *testing.T) {
 	})
 
 	t.Run("revert with no completions", func(t *testing.T) {
-		err := service.RevertLastCompletion(userID, activity.ID)
+		err := service.RevertLastCompletion(userID, activity.ID, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no completion found")
 	})
