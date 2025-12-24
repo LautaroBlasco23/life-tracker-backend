@@ -125,26 +125,29 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 		return nil, errors.New("user not found")
 	}
 
+	// Capture old image ID before uploading new one
+	var oldImageID string
+	if user.ProfilePicURL != nil && *user.ProfilePicURL != "" {
+		oldImageID = s.extractImageIDFromURL(*user.ProfilePicURL)
+	}
+
 	originalURL, thumbnailURL, err := s.imageClient.UploadProfileImage(ctx, userID, imageData, file.Filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}
 
-	if user.ProfilePicURL != nil && *user.ProfilePicURL != "" {
-		oldImageID := s.extractImageIDFromURL(*user.ProfilePicURL)
-		if oldImageID != "" {
-			err = s.imageClient.DeleteImage(ctx, oldImageID, fmt.Sprintf("%d", userID))
-			if err != nil {
-				return nil, fmt.Errorf("failed to delete the old image: %w", err)
-			}
-		}
-	}
-
 	user.ProfilePicURL = &originalURL
 	user.ThumbnailURL = &thumbnailURL
-
 	if err := s.db.Save(&user).Error; err != nil {
 		return nil, errors.New("failed to update user profile")
+	}
+
+	// Best-effort cleanup of old image (non-fatal)
+	if oldImageID != "" {
+		if err := s.imageClient.DeleteImage(ctx, oldImageID, fmt.Sprintf("%d", userID)); err != nil {
+			// Log but don't fail - old image might be orphaned but user experience is preserved
+			fmt.Printf("warning: failed to delete old profile image %s: %v\n", oldImageID, err)
+		}
 	}
 
 	return user.ToResponse(), nil
