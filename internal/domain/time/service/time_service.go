@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"time"
 
 	"life-tracker-backend/internal/domain/time/dto"
 	"life-tracker-backend/internal/domain/time/model"
@@ -37,8 +38,38 @@ func (s *TimeService) GetRecords(userID uint, filter *dto.TimeRecordFilter) ([]*
 
 	query := s.db.Where("user_id = ?", userID).Order("created_at DESC")
 
-	if filter != nil && filter.Category != "" {
-		query = query.Where("category = ?", filter.Category)
+	if filter != nil {
+		if filter.Category != "" {
+			query = query.Where("category = ?", filter.Category)
+		}
+
+		effectiveStartDate := filter.StartDate
+		effectiveEndDate := filter.EndDate
+
+		if filter.Month != nil && filter.Year != nil {
+			start := time.Date(*filter.Year, time.Month(*filter.Month), 1, 0, 0, 0, 0, time.UTC)
+			end := start.AddDate(0, 1, 0).Add(-time.Second)
+			effectiveStartDate = &start
+			effectiveEndDate = &end
+		} else if filter.Month != nil {
+			currentYear := time.Now().Year()
+			start := time.Date(currentYear, time.Month(*filter.Month), 1, 0, 0, 0, 0, time.UTC)
+			end := start.AddDate(0, 1, 0).Add(-time.Second)
+			effectiveStartDate = &start
+			effectiveEndDate = &end
+		} else if filter.Year != nil {
+			start := time.Date(*filter.Year, 1, 1, 0, 0, 0, 0, time.UTC)
+			end := time.Date(*filter.Year, 12, 31, 23, 59, 59, 999999999, time.UTC)
+			effectiveStartDate = &start
+			effectiveEndDate = &end
+		}
+
+		if effectiveStartDate != nil {
+			query = query.Where("created_at >= ?", *effectiveStartDate)
+		}
+		if effectiveEndDate != nil {
+			query = query.Where("created_at <= ?", *effectiveEndDate)
+		}
 	}
 
 	if err := query.Find(&records).Error; err != nil {

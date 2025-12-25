@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"life-tracker-backend/internal/domain/time/dto"
 	"life-tracker-backend/internal/domain/time/service"
@@ -66,13 +67,35 @@ func (c *TimeController) GetRecords(ctx *gin.Context) {
 		return
 	}
 
-	var filter dto.TimeRecordFilter
-	if err = ctx.ShouldBindQuery(&filter); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filter parameters"})
-		return
+	filter := &dto.TimeRecordFilter{
+		Category: ctx.Query("category"),
 	}
 
-	records, err := c.timeService.GetRecords(userID, &filter)
+	if monthParam := ctx.Query("month"); monthParam != "" {
+		if m, parseErr := strconv.Atoi(monthParam); parseErr == nil && m >= 1 && m <= 12 {
+			filter.Month = &m
+		}
+	}
+
+	if yearParam := ctx.Query("year"); yearParam != "" {
+		if y, parseErr := strconv.Atoi(yearParam); parseErr == nil && y >= 2000 && y <= 2100 {
+			filter.Year = &y
+		}
+	}
+
+	if startDate := ctx.Query("start_date"); startDate != "" {
+		if parsed, parseErr := time.Parse("2006-01-02", startDate); parseErr == nil {
+			filter.StartDate = &parsed
+		}
+	}
+
+	if endDate := ctx.Query("end_date"); endDate != "" {
+		if parsed, parseErr := time.Parse("2006-01-02", endDate); parseErr == nil {
+			filter.EndDate = &parsed
+		}
+	}
+
+	records, err := c.timeService.GetRecords(userID, filter)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
