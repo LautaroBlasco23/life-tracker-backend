@@ -151,7 +151,7 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 	return transaction.ToResponse(category.Name, subcategory.Name), nil
 }
 
-func (s *FinanceService) GetTransactions(userID uint, transactionType *string, startDate, endDate *time.Time, limit int) ([]*dto.TransactionResponse, error) {
+func (s *FinanceService) GetTransactions(userID uint, transactionType *string, startDate, endDate *time.Time, month, year *int, categoryID *uint, limit int) ([]*dto.TransactionResponse, error) {
 	collection := s.mongoDB.Collection("transactions")
 	filter := bson.M{"userId": userID}
 
@@ -159,13 +159,38 @@ func (s *FinanceService) GetTransactions(userID uint, transactionType *string, s
 		filter["type"] = *transactionType
 	}
 
-	if startDate != nil || endDate != nil {
+	if categoryID != nil {
+		filter["categoryId"] = *categoryID
+	}
+
+	effectiveStartDate := startDate
+	effectiveEndDate := endDate
+
+	if month != nil && year != nil {
+		start := time.Date(*year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0).Add(-time.Second)
+		effectiveStartDate = &start
+		effectiveEndDate = &end
+	} else if month != nil {
+		currentYear := time.Now().Year()
+		start := time.Date(currentYear, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0).Add(-time.Second)
+		effectiveStartDate = &start
+		effectiveEndDate = &end
+	} else if year != nil {
+		start := time.Date(*year, 1, 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(*year, 12, 31, 23, 59, 59, 999999999, time.UTC)
+		effectiveStartDate = &start
+		effectiveEndDate = &end
+	}
+
+	if effectiveStartDate != nil || effectiveEndDate != nil {
 		dateFilter := bson.M{}
-		if startDate != nil {
-			dateFilter["$gte"] = *startDate
+		if effectiveStartDate != nil {
+			dateFilter["$gte"] = *effectiveStartDate
 		}
-		if endDate != nil {
-			dateFilter["$lte"] = *endDate
+		if effectiveEndDate != nil {
+			dateFilter["$lte"] = *effectiveEndDate
 		}
 		filter["date"] = dateFilter
 	}

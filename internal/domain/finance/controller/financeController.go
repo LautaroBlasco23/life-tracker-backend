@@ -94,6 +94,28 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 	}
 
 	var startDate, endDate *time.Time
+	var month, year *int
+	var categoryID *uint
+
+	if monthParam := ctx.Query("month"); monthParam != "" {
+		if m, parseErr := strconv.Atoi(monthParam); parseErr == nil && m >= 1 && m <= 12 {
+			month = &m
+		}
+	}
+
+	if yearParam := ctx.Query("year"); yearParam != "" {
+		if y, parseErr := strconv.Atoi(yearParam); parseErr == nil && y >= 2000 && y <= 2100 {
+			year = &y
+		}
+	}
+
+	if categoryParam := ctx.Query("category_id"); categoryParam != "" {
+		if cid, parseErr := strconv.ParseUint(categoryParam, 10, 32); parseErr == nil {
+			catID := uint(cid)
+			categoryID = &catID
+		}
+	}
+
 	if start := ctx.Query("start_date"); start != "" {
 		if parsed, parseErr := time.Parse("2006-01-02", start); parseErr == nil {
 			startDate = &parsed
@@ -112,7 +134,7 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 		}
 	}
 
-	transactions, err := c.financeService.GetTransactions(userID, transactionType, startDate, endDate, limit)
+	transactions, err := c.financeService.GetTransactions(userID, transactionType, startDate, endDate, month, year, categoryID, limit)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
