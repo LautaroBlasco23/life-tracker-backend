@@ -39,6 +39,81 @@ func getTimezone(ctx *gin.Context) *time.Location {
 	return middleware.GetTimezoneFromContext(ctx)
 }
 
+type transactionFilters struct {
+	transactionType *string
+	startDate       *time.Time
+	endDate         *time.Time
+	month           *int
+	year            *int
+	categoryID      *uint
+	limit           int
+}
+
+func parseTransactionFilters(ctx *gin.Context) transactionFilters {
+	f := transactionFilters{limit: 100}
+
+	if t := ctx.Query("type"); t != "" {
+		f.transactionType = &t
+	}
+
+	f.month = parseIntInRange(ctx.Query("month"), 1, 12)
+	f.year = parseIntInRange(ctx.Query("year"), 2000, 2100)
+	f.categoryID = parseUint(ctx.Query("category_id"))
+	f.startDate = parseDate(ctx.Query("start_date"))
+	f.endDate = parseDate(ctx.Query("end_date"))
+
+	if l := parseIntPositive(ctx.Query("limit")); l != nil {
+		f.limit = *l
+	}
+
+	return f
+}
+
+func parseIntInRange(s string, min, max int) *int {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil || v < min || v > max {
+		return nil
+	}
+	return &v
+}
+
+func parseIntPositive(s string) *int {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil || v <= 0 {
+		return nil
+	}
+	return &v
+}
+
+func parseUint(s string) *uint {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return nil
+	}
+	result := uint(v)
+	return &result
+}
+
+func parseDate(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
 func (c *FinanceController) GetCategories(ctx *gin.Context) {
 	var transactionType *string
 	if t := ctx.Query("type"); t != "" {
@@ -93,54 +168,20 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 		return
 	}
 
-	var transactionType *string
-	if t := ctx.Query("type"); t != "" {
-		transactionType = &t
-	}
-
-	var startDate, endDate *time.Time
-	var month, year *int
-	var categoryID *uint
-
-	if monthParam := ctx.Query("month"); monthParam != "" {
-		if m, parseErr := strconv.Atoi(monthParam); parseErr == nil && m >= 1 && m <= 12 {
-			month = &m
-		}
-	}
-
-	if yearParam := ctx.Query("year"); yearParam != "" {
-		if y, parseErr := strconv.Atoi(yearParam); parseErr == nil && y >= 2000 && y <= 2100 {
-			year = &y
-		}
-	}
-
-	if categoryParam := ctx.Query("category_id"); categoryParam != "" {
-		if cid, parseErr := strconv.ParseUint(categoryParam, 10, 32); parseErr == nil {
-			catID := uint(cid)
-			categoryID = &catID
-		}
-	}
-
-	if start := ctx.Query("start_date"); start != "" {
-		if parsed, parseErr := time.Parse("2006-01-02", start); parseErr == nil {
-			startDate = &parsed
-		}
-	}
-	if end := ctx.Query("end_date"); end != "" {
-		if parsed, parseErr := time.Parse("2006-01-02", end); parseErr == nil {
-			endDate = &parsed
-		}
-	}
-
-	limit := 100
-	if limitParam := ctx.Query("limit"); limitParam != "" {
-		if l, parseErr := strconv.Atoi(limitParam); parseErr == nil && l > 0 {
-			limit = l
-		}
-	}
-
+	filters := parseTransactionFilters(ctx)
 	loc := getTimezone(ctx)
-	transactions, err := c.financeService.GetTransactions(userID, transactionType, startDate, endDate, month, year, categoryID, limit, loc)
+
+	transactions, err := c.financeService.GetTransactions(
+		userID,
+		filters.transactionType,
+		filters.startDate,
+		filters.endDate,
+		filters.month,
+		filters.year,
+		filters.categoryID,
+		filters.limit,
+		loc,
+	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
