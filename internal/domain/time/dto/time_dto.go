@@ -24,11 +24,11 @@ type TimeRecordResponse struct {
 }
 
 type TimeRecordFilter struct {
-	Category  string     `form:"category"`
 	StartDate *time.Time `form:"-"`
 	EndDate   *time.Time `form:"-"`
 	Month     *int       `form:"-"`
 	Year      *int       `form:"-"`
+	Category  string     `form:"category"`
 }
 
 type TimeStatsResponse struct {
