@@ -36,6 +36,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to databases: %w", err)
 	}
+
 	log.Println("✅ Connected to PostgreSQL successfully")
 	log.Println("✅ Connected to MongoDB successfully")
 
@@ -49,6 +50,7 @@ func run() error {
 			log.Printf("Error closing image client: %v", closeErr)
 		}
 	}()
+
 	log.Println("✅ Connected to ImageStore service")
 
 	// Set Gin mode
@@ -61,8 +63,7 @@ func run() error {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORSMiddleware())
-
-	// Metrics middleware
+	r.Use(middleware.TimezoneMiddleware())
 	r.Use(middleware.PrometheusMiddleware())
 
 	// monitoring metrics endpoint
