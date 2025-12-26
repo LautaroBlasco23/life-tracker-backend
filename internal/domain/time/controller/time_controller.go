@@ -8,6 +8,7 @@ import (
 
 	"life-tracker-backend/internal/domain/time/dto"
 	"life-tracker-backend/internal/domain/time/service"
+	"life-tracker-backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,6 +31,10 @@ func getTimeUserID(ctx *gin.Context) (uint, error) {
 		return 0, errors.New("invalid user ID type in context")
 	}
 	return userID, nil
+}
+
+func getTimezone(ctx *gin.Context) *time.Location {
+	return middleware.GetTimezoneFromContext(ctx)
 }
 
 func (c *TimeController) CreateRecord(ctx *gin.Context) {
@@ -95,7 +100,8 @@ func (c *TimeController) GetRecords(ctx *gin.Context) {
 		}
 	}
 
-	records, err := c.timeService.GetRecords(userID, filter)
+	loc := getTimezone(ctx)
+	records, err := c.timeService.GetRecords(userID, filter, loc)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

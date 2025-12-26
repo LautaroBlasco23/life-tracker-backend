@@ -8,6 +8,7 @@ import (
 
 	"life-tracker-backend/internal/domain/finance/dto"
 	"life-tracker-backend/internal/domain/finance/service"
+	"life-tracker-backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,6 +33,10 @@ func getFinanceUserID(ctx *gin.Context) (uint, error) {
 		return 0, errors.New("invalid user ID type in context")
 	}
 	return userID, nil
+}
+
+func getTimezone(ctx *gin.Context) *time.Location {
+	return middleware.GetTimezoneFromContext(ctx)
 }
 
 func (c *FinanceController) GetCategories(ctx *gin.Context) {
@@ -134,7 +139,8 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 		}
 	}
 
-	transactions, err := c.financeService.GetTransactions(userID, transactionType, startDate, endDate, month, year, categoryID, limit)
+	loc := getTimezone(ctx)
+	transactions, err := c.financeService.GetTransactions(userID, transactionType, startDate, endDate, month, year, categoryID, limit, loc)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -244,7 +250,8 @@ func (c *FinanceController) GetFinanceSummary(ctx *gin.Context) {
 		return
 	}
 
-	summary, err := c.financeService.GetFinanceSummary(userID, startDate, endDate)
+	loc := getTimezone(ctx)
+	summary, err := c.financeService.GetFinanceSummary(userID, startDate, endDate, loc)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -263,9 +270,11 @@ func (c *FinanceController) GetMonthlyStats(ctx *gin.Context) {
 		return
 	}
 
+	loc := getTimezone(ctx)
+
 	yearParam := ctx.Query("year")
 	if yearParam == "" {
-		yearParam = strconv.Itoa(time.Now().Year())
+		yearParam = strconv.Itoa(time.Now().In(loc).Year())
 	}
 
 	year, err := strconv.Atoi(yearParam)
@@ -274,7 +283,7 @@ func (c *FinanceController) GetMonthlyStats(ctx *gin.Context) {
 		return
 	}
 
-	stats, err := c.financeService.GetMonthlyStats(userID, year)
+	stats, err := c.financeService.GetMonthlyStats(userID, year, loc)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

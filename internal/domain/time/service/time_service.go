@@ -33,7 +33,7 @@ func (s *TimeService) CreateRecord(userID uint, req *dto.CreateTimeRecordRequest
 	return record.ToResponse(), nil
 }
 
-func (s *TimeService) GetRecords(userID uint, filter *dto.TimeRecordFilter) ([]*dto.TimeRecordResponse, error) {
+func (s *TimeService) GetRecords(userID uint, filter *dto.TimeRecordFilter, loc *time.Location) ([]*dto.TimeRecordResponse, error) {
 	var records []model.TimeRecord
 
 	query := s.db.Where("user_id = ?", userID).Order("created_at DESC")
@@ -43,32 +43,13 @@ func (s *TimeService) GetRecords(userID uint, filter *dto.TimeRecordFilter) ([]*
 			query = query.Where("category = ?", filter.Category)
 		}
 
-		effectiveStartDate := filter.StartDate
-		effectiveEndDate := filter.EndDate
-
-		if filter.Month != nil && filter.Year != nil {
-			start := time.Date(*filter.Year, time.Month(*filter.Month), 1, 0, 0, 0, 0, time.UTC)
-			end := start.AddDate(0, 1, 0).Add(-time.Second)
-			effectiveStartDate = &start
-			effectiveEndDate = &end
-		} else if filter.Month != nil {
-			currentYear := time.Now().Year()
-			start := time.Date(currentYear, time.Month(*filter.Month), 1, 0, 0, 0, 0, time.UTC)
-			end := start.AddDate(0, 1, 0).Add(-time.Second)
-			effectiveStartDate = &start
-			effectiveEndDate = &end
-		} else if filter.Year != nil {
-			start := time.Date(*filter.Year, 1, 1, 0, 0, 0, 0, time.UTC)
-			end := time.Date(*filter.Year, 12, 31, 23, 59, 59, 999999999, time.UTC)
-			effectiveStartDate = &start
-			effectiveEndDate = &end
-		}
+		effectiveStartDate, effectiveEndDate := s.calculateDateRange(filter, loc)
 
 		if effectiveStartDate != nil {
-			query = query.Where("created_at >= ?", *effectiveStartDate)
+			query = query.Where("created_at >= ?", effectiveStartDate.UTC())
 		}
 		if effectiveEndDate != nil {
-			query = query.Where("created_at <= ?", *effectiveEndDate)
+			query = query.Where("created_at <= ?", effectiveEndDate.UTC())
 		}
 	}
 
@@ -183,4 +164,40 @@ func (s *TimeService) GetStats(userID uint) (*dto.TimeStatsResponse, error) {
 		TopCategory:     topCategory,
 		TopCategoryMins: topCategoryMins,
 	}, nil
+}
+
+func (s *TimeService) calculateDateRange(filter *dto.TimeRecordFilter, loc *time.Location) (*time.Time, *time.Time) {
+	if filter.Month != nil && filter.Year != nil {
+		start := time.Date(*filter.Year, time.Month(*filter.Month), 1, 0, 0, 0, 0, loc)
+		end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
+		return &start, &end
+	}
+
+	if filter.Month != nil {
+		currentYear := time.Now().In(loc).Year()
+		start := time.Date(currentYear, time.Month(*filter.Month), 1, 0, 0, 0, 0, loc)
+		end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
+		return &start, &end
+	}
+
+	if filter.Year != nil {
+		start := time.Date(*filter.Year, 1, 1, 0, 0, 0, 0, loc)
+		end := time.Date(*filter.Year, 12, 31, 23, 59, 59, 999999999, loc)
+		return &start, &end
+	}
+
+	if filter.StartDate != nil || filter.EndDate != nil {
+		var effectiveStart, effectiveEnd *time.Time
+		if filter.StartDate != nil {
+			start := time.Date(filter.StartDate.Year(), filter.StartDate.Month(), filter.StartDate.Day(), 0, 0, 0, 0, loc)
+			effectiveStart = &start
+		}
+		if filter.EndDate != nil {
+			end := time.Date(filter.EndDate.Year(), filter.EndDate.Month(), filter.EndDate.Day(), 23, 59, 59, 999999999, loc)
+			effectiveEnd = &end
+		}
+		return effectiveStart, effectiveEnd
+	}
+
+	return nil, nil
 }

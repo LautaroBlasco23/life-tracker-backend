@@ -65,7 +65,7 @@ func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityReq
 	return activity.ToResponse(), nil
 }
 
-func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) ([]*dto.ActivityResponse, error) {
+func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool, loc *time.Location) ([]*dto.ActivityResponse, error) {
 	var activities []model.Activity
 
 	query := s.db.Where("user_id = ?", userID)
@@ -77,7 +77,7 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) (
 		return nil, errors.New("failed to fetch activities")
 	}
 
-	todayCompletions, err := s.getTodayCompletions(userID)
+	todayCompletions, err := s.getTodayCompletions(userID, loc)
 	if err != nil {
 		fmt.Printf("Warning: failed to fetch today's completions: %v\n", err)
 		todayCompletions = make(map[uint]int)
@@ -92,7 +92,7 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool) (
 	return responses, nil
 }
 
-func (s *ActivityService) GetTodayActivities(userID uint) ([]*dto.ActivityResponse, error) {
+func (s *ActivityService) GetTodayActivities(userID uint, loc *time.Location) ([]*dto.ActivityResponse, error) {
 	var activities []model.Activity
 
 	if err := s.db.Where("user_id = ? AND is_active = ?", userID, true).Find(&activities).Error; err != nil {
@@ -108,7 +108,7 @@ func (s *ActivityService) GetTodayActivities(userID uint) ([]*dto.ActivityRespon
 		activityIDs[i] = activities[i].ID
 	}
 
-	metadata, err := s.getCompletionMetadata(userID, activityIDs)
+	metadata, err := s.getCompletionMetadata(userID, activityIDs, loc)
 	if err != nil {
 		fmt.Printf("Warning: failed to fetch completion metadata: %v\n", err)
 		metadata = &CompletionMetadata{
@@ -118,7 +118,7 @@ func (s *ActivityService) GetTodayActivities(userID uint) ([]*dto.ActivityRespon
 		}
 	}
 
-	now := time.Now()
+	now := time.Now().In(loc)
 	var responses []*dto.ActivityResponse
 
 	for i := range activities {
@@ -316,7 +316,7 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 	return stats, nil
 }
 
-func (s *ActivityService) RevertLastCompletion(userID, activityID uint, targetDate *time.Time) error {
+func (s *ActivityService) RevertLastCompletion(userID, activityID uint, targetDate *time.Time, loc *time.Location) error {
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return errors.New("activity not found")
@@ -326,10 +326,11 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint, targetDa
 
 	var startOfDay, endOfDay time.Time
 	if targetDate != nil {
-		startOfDay = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+		dateInLoc := targetDate.In(loc)
+		startOfDay = time.Date(dateInLoc.Year(), dateInLoc.Month(), dateInLoc.Day(), 0, 0, 0, 0, loc)
 	} else {
-		now := time.Now()
-		startOfDay = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		now := time.Now().In(loc)
+		startOfDay = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	}
 	endOfDay = startOfDay.Add(24 * time.Hour)
 
@@ -337,8 +338,8 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint, targetDa
 		"activityId": activityID,
 		"userId":     userID,
 		"completionDate": bson.M{
-			"$gte": startOfDay,
-			"$lt":  endOfDay,
+			"$gte": startOfDay.UTC(),
+			"$lt":  endOfDay.UTC(),
 		},
 	}
 
@@ -381,17 +382,21 @@ func (s *ActivityService) validateDayFrequency(dayFrequency string) error {
 	return nil
 }
 
-func (s *ActivityService) getTodayCompletions(userID uint) (map[uint]int, error) {
-	return s.getCompletionsForDate(userID, time.Now())
+func (s *ActivityService) getTodayCompletions(userID uint, loc *time.Location) (map[uint]int, error) {
+	return s.getCompletionsForDate(userID, time.Now().In(loc), loc)
 }
 
-func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint) (*CompletionMetadata, error) {
+func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint, loc *time.Location) (*CompletionMetadata, error) {
 	collection := s.mongoDB.Collection("activity_records")
 
-	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	now := time.Now().In(loc)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	endOfDay := startOfDay.Add(24 * time.Hour)
-	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+
+	startOfDayUTC := startOfDay.UTC()
+	endOfDayUTC := endOfDay.UTC()
+	startOfMonthUTC := startOfMonth.UTC()
 
 	pipeline := []bson.M{
 		{
@@ -405,16 +410,22 @@ func (s *ActivityService) getCompletionMetadata(userID uint, activityIDs []uint)
 		},
 		{
 			"$group": bson.M{
-				"_id":               "$activityId",
-				"latestCompletion":  bson.M{"$first": "$completionDate"},
-				"monthlyCompletion": bson.M{"$first": bson.M{"$cond": bson.A{bson.M{"$gte": bson.A{"$completionDate", startOfMonth}}, "$completionDate", nil}}},
+				"_id":              "$activityId",
+				"latestCompletion": bson.M{"$first": "$completionDate"},
+				"monthlyCompletion": bson.M{"$first": bson.M{
+					"$cond": bson.A{
+						bson.M{"$gte": bson.A{"$completionDate", startOfMonthUTC}},
+						"$completionDate",
+						nil,
+					},
+				}},
 				"todayCount": bson.M{
 					"$sum": bson.M{
 						"$cond": bson.A{
 							bson.M{
 								"$and": bson.A{
-									bson.M{"$gte": bson.A{"$completionDate", startOfDay}},
-									bson.M{"$lt": bson.A{"$completionDate", endOfDay}},
+									bson.M{"$gte": bson.A{"$completionDate", startOfDayUTC}},
+									bson.M{"$lt": bson.A{"$completionDate", endOfDayUTC}},
 								},
 							},
 							1,
@@ -506,7 +517,7 @@ func (s *ActivityService) shouldShowToday(activity *model.Activity, metadata *Co
 	}
 }
 
-func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.ActivityFilter) ([]*dto.ActivityResponse, error) {
+func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.ActivityFilter, loc *time.Location) ([]*dto.ActivityResponse, error) {
 	query := s.db.Where("user_id = ? AND is_active = ?", userID, true)
 
 	if filter.Frequency != "" {
@@ -524,14 +535,14 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 
 	var targetDate time.Time
 	if filter.ScheduledFor != "" {
-		parsed, err := time.Parse("2006-01-02", filter.ScheduledFor)
+		parsed, err := time.ParseInLocation("2006-01-02", filter.ScheduledFor, loc)
 		if err != nil {
 			return nil, errors.New("invalid date format, use YYYY-MM-DD")
 		}
 		targetDate = parsed
 		activities = s.filterByScheduledDate(activities, targetDate)
 	} else {
-		targetDate = time.Now()
+		targetDate = time.Now().In(loc)
 	}
 
 	activityIDs := make([]uint, len(activities))
@@ -539,7 +550,7 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 		activityIDs[i] = activities[i].ID
 	}
 
-	completions, err := s.getCompletionsForDate(userID, targetDate)
+	completions, err := s.getCompletionsForDate(userID, targetDate, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -555,19 +566,23 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 	return responses, nil
 }
 
-func (s *ActivityService) getCompletionsForDate(userID uint, date time.Time) (map[uint]int, error) {
+func (s *ActivityService) getCompletionsForDate(userID uint, date time.Time, loc *time.Location) (map[uint]int, error) {
 	collection := s.mongoDB.Collection("activity_records")
 
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	dateInLoc := date.In(loc)
+	startOfDay := time.Date(dateInLoc.Year(), dateInLoc.Month(), dateInLoc.Day(), 0, 0, 0, 0, loc)
 	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	startOfDayUTC := startOfDay.UTC()
+	endOfDayUTC := endOfDay.UTC()
 
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{
 				"userId": userID,
 				"completionDate": bson.M{
-					"$gte": startOfDay,
-					"$lt":  endOfDay,
+					"$gte": startOfDayUTC,
+					"$lt":  endOfDayUTC,
 				},
 			},
 		},

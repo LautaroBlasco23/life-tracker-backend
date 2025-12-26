@@ -4,9 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/service"
+	"life-tracker-backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,6 +33,10 @@ func getActivityUserID(ctx *gin.Context) (uint, error) {
 		return 0, errors.New("invalid user ID type in context")
 	}
 	return userID, nil
+}
+
+func getTimezone(ctx *gin.Context) *time.Location {
+	return middleware.GetTimezoneFromContext(ctx)
 }
 
 func (c *ActivityController) CreateActivity(ctx *gin.Context) {
@@ -78,7 +84,8 @@ func (c *ActivityController) GetUserActivities(ctx *gin.Context) {
 		return
 	}
 
-	activities, err := c.activityService.GetUserActivitiesFiltered(userID, &filter)
+	loc := getTimezone(ctx)
+	activities, err := c.activityService.GetUserActivitiesFiltered(userID, &filter, loc)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -100,7 +107,8 @@ func (c *ActivityController) GetTodayActivities(ctx *gin.Context) {
 		return
 	}
 
-	activities, err := c.activityService.GetTodayActivities(userID)
+	loc := getTimezone(ctx)
+	activities, err := c.activityService.GetTodayActivities(userID, loc)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -351,7 +359,8 @@ func (c *ActivityController) RevertLastCompletion(ctx *gin.Context) {
 		return
 	}
 
-	if revertErr := c.activityService.RevertLastCompletion(userID, uint(activityID), req.TargetDate); revertErr != nil {
+	loc := getTimezone(ctx)
+	if revertErr := c.activityService.RevertLastCompletion(userID, uint(activityID), req.TargetDate, loc); revertErr != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": revertErr.Error()})
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/model"
@@ -41,6 +42,17 @@ func (s *UserService) GetProfile(userID uint) (*dto.UserResponse, error) {
 	return user.ToResponse(), nil
 }
 
+func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
+	var user model.User
+	if err := s.db.Select("timezone").First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return time.UTC, nil
+		}
+		return time.UTC, err
+	}
+	return user.GetTimezoneLocation(), nil
+}
+
 func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	var user model.User
 	if err := s.db.First(&user, userID).Error; err != nil {
@@ -56,6 +68,12 @@ func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*d
 	}
 	if req.ProfilePicURL != nil {
 		updates["profile_pic_url"] = *req.ProfilePicURL
+	}
+	if req.Timezone != nil {
+		if _, err := time.LoadLocation(*req.Timezone); err != nil {
+			return nil, errors.New("invalid timezone")
+		}
+		updates["timezone"] = *req.Timezone
 	}
 
 	if len(updates) > 0 {
@@ -99,7 +117,6 @@ func (s *UserService) DeleteUser(userID uint) error {
 	return nil
 }
 
-// Image related methods
 func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file *multipart.FileHeader) (*dto.UserResponse, error) {
 	if err := s.validateImageFile(file); err != nil {
 		return nil, err
@@ -125,7 +142,6 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 		return nil, errors.New("user not found")
 	}
 
-	// Capture old image ID before uploading new one
 	var oldImageID string
 	if user.ProfilePicURL != nil && *user.ProfilePicURL != "" {
 		oldImageID = s.extractImageIDFromURL(*user.ProfilePicURL)
@@ -142,10 +158,8 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 		return nil, errors.New("failed to update user profile")
 	}
 
-	// Best-effort cleanup of old image (non-fatal)
 	if oldImageID != "" {
 		if err := s.imageClient.DeleteImage(ctx, oldImageID, fmt.Sprintf("%d", userID)); err != nil {
-			// Log but don't fail - old image might be orphaned but user experience is preserved
 			fmt.Printf("warning: failed to delete old profile image %s: %v\n", oldImageID, err)
 		}
 	}
