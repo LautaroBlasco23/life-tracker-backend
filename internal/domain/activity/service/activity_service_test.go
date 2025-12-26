@@ -26,9 +26,12 @@ var (
 	testDB      *gorm.DB
 	testMongoDB *mongo.Database
 	mongoClient *mongo.Client
+	testLoc     *time.Location
 )
 
 func TestMain(m *testing.M) {
+	testLoc = time.UTC
+
 	code := m.Run()
 
 	if mongoClient != nil {
@@ -191,20 +194,20 @@ func TestGetUserActivities(t *testing.T) {
 	require.NoError(t, service.db.Create(&otherUser).Error)
 
 	t.Run("get only active activities", func(t *testing.T) {
-		resp, err := service.GetUserActivities(userID, false)
+		resp, err := service.GetUserActivities(userID, false, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "Active 1", resp[0].Title)
 	})
 
 	t.Run("get all activities including inactive", func(t *testing.T) {
-		resp, err := service.GetUserActivities(userID, true)
+		resp, err := service.GetUserActivities(userID, true, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 2)
 	})
 
 	t.Run("different user returns empty", func(t *testing.T) {
-		resp, err := service.GetUserActivities(999, false)
+		resp, err := service.GetUserActivities(999, false, testLoc)
 		assert.NoError(t, err)
 		assert.Empty(t, resp)
 	})
@@ -417,7 +420,7 @@ func TestValidateDayFrequency(t *testing.T) {
 func TestShouldShowToday(t *testing.T) {
 	service := getTestService(t)
 
-	now := time.Now()
+	now := time.Now().In(testLoc)
 	metadata := &CompletionMetadata{
 		MonthlyCompletions: make(map[uint]time.Time),
 		OneTimeCompletions: make(map[uint]time.Time),
@@ -545,7 +548,7 @@ func TestRevertLastCompletion(t *testing.T) {
 		_, err := collection.InsertOne(context.Background(), record)
 		require.NoError(t, err)
 
-		err = service.RevertLastCompletion(userID, activity.ID, nil)
+		err = service.RevertLastCompletion(userID, activity.ID, nil, testLoc)
 		assert.NoError(t, err)
 
 		count, err := collection.CountDocuments(context.Background(), bson.M{"_id": record.ID})
@@ -554,8 +557,63 @@ func TestRevertLastCompletion(t *testing.T) {
 	})
 
 	t.Run("revert with no completions", func(t *testing.T) {
-		err := service.RevertLastCompletion(userID, activity.ID, nil)
+		err := service.RevertLastCompletion(userID, activity.ID, nil, testLoc)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no completion found")
+	})
+}
+
+func TestGetTodayActivities(t *testing.T) {
+	service := getTestService(t)
+	userID := uint(106)
+
+	daily := model.Activity{
+		UserID:           userID,
+		Title:            "Daily Activity",
+		IsActive:         true,
+		Frequency:        model.FrequencyDaily,
+		DayTime:          model.DayTimeMorning,
+		CompletionAmount: 1,
+	}
+	require.NoError(t, service.db.Create(&daily).Error)
+
+	t.Run("returns daily activities", func(t *testing.T) {
+		resp, err := service.GetTodayActivities(userID, testLoc)
+		assert.NoError(t, err)
+		assert.Len(t, resp, 1)
+		assert.Equal(t, "Daily Activity", resp[0].Title)
+	})
+}
+
+func TestGetUserActivitiesFiltered(t *testing.T) {
+	service := getTestService(t)
+	userID := uint(107)
+
+	activity := model.Activity{
+		UserID:           userID,
+		Title:            "Filtered Activity",
+		IsActive:         true,
+		Frequency:        model.FrequencyDaily,
+		DayTime:          model.DayTimeMorning,
+		CompletionAmount: 1,
+	}
+	require.NoError(t, service.db.Create(&activity).Error)
+
+	t.Run("filter by frequency", func(t *testing.T) {
+		filter := &dto.ActivityFilter{
+			Frequency: "daily",
+		}
+		resp, err := service.GetUserActivitiesFiltered(userID, filter, testLoc)
+		assert.NoError(t, err)
+		assert.Len(t, resp, 1)
+	})
+
+	t.Run("filter by day time", func(t *testing.T) {
+		filter := &dto.ActivityFilter{
+			DayTime: "morning",
+		}
+		resp, err := service.GetUserActivitiesFiltered(userID, filter, testLoc)
+		assert.NoError(t, err)
+		assert.Len(t, resp, 1)
 	})
 }
