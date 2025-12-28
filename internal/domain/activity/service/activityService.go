@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -85,8 +86,12 @@ func (s *ActivityService) GetUserActivities(userID uint, includeInactive bool, l
 
 	responses := make([]*dto.ActivityResponse, len(activities))
 	for i := range activities {
+		streak, err := s.CalculateStreak(userID, activities[i].ID, &activities[i], loc)
+		if err != nil {
+			streak = &dto.StreakInfo{Current: 0, Longest: 0}
+		}
 		completions := todayCompletions[activities[i].ID]
-		responses[i] = activities[i].ToResponseWithCompletions(completions)
+		responses[i] = activities[i].ToResponseWithCompletions(completions, streak)
 	}
 
 	return responses, nil
@@ -123,8 +128,12 @@ func (s *ActivityService) GetTodayActivities(userID uint, loc *time.Location) ([
 
 	for i := range activities {
 		if s.shouldShowToday(&activities[i], metadata, now) {
+			streak, err := s.CalculateStreak(userID, activities[i].ID, &activities[i], loc)
+			if err != nil {
+				streak = &dto.StreakInfo{Current: 0, Longest: 0}
+			}
 			completions := metadata.TodayCompletions[activities[i].ID]
-			responses = append(responses, activities[i].ToResponseWithCompletions(completions))
+			responses = append(responses, activities[i].ToResponseWithCompletions(completions, streak))
 		}
 	}
 
@@ -280,7 +289,7 @@ func (s *ActivityService) GetActivityRecords(userID, activityID uint, limit int)
 	return responses, nil
 }
 
-func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.ActivityStatsResponse, error) {
+func (s *ActivityService) GetActivityStats(userID, activityID uint, loc *time.Location) (*dto.ActivityStatsResponse, error) {
 	var activity model.Activity
 	if err := s.db.Where("id = ? AND user_id = ?", activityID, userID).First(&activity).Error; err != nil {
 		return nil, errors.New("activity not found")
@@ -299,12 +308,17 @@ func (s *ActivityService) GetActivityStats(userID, activityID uint) (*dto.Activi
 		recentRecords = []*dto.ActivityRecordResponse{}
 	}
 
+	streak, err := s.CalculateStreak(userID, activityID, &activity, loc)
+	if err != nil {
+		streak = &dto.StreakInfo{Current: 0, Longest: 0}
+	}
+
 	stats := &dto.ActivityStatsResponse{
 		ActivityID:       activityID,
 		Title:            activity.Title,
 		TotalCompletions: totalCompletions,
-		CurrentStreak:    0,
-		LongestStreak:    0,
+		CurrentStreak:    streak.Current,
+		LongestStreak:    streak.Longest,
 		CompletionRate:   0,
 		RecentRecords:    recentRecords,
 	}
@@ -545,11 +559,6 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 		targetDate = time.Now().In(loc)
 	}
 
-	activityIDs := make([]uint, len(activities))
-	for i := range activities {
-		activityIDs[i] = activities[i].ID
-	}
-
 	completions, err := s.getCompletionsForDate(userID, targetDate, loc)
 	if err != nil {
 		return nil, err
@@ -560,7 +569,11 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 
 	responses := make([]*dto.ActivityResponse, len(activities))
 	for i := range activities {
-		responses[i] = activities[i].ToResponseWithCompletions(completions[activities[i].ID])
+		streak, err := s.CalculateStreak(userID, activities[i].ID, &activities[i], loc)
+		if err != nil {
+			streak = &dto.StreakInfo{Current: 0, Longest: 0}
+		}
+		responses[i] = activities[i].ToResponseWithCompletions(completions[activities[i].ID], streak)
 	}
 
 	return responses, nil
@@ -650,4 +663,210 @@ func (s *ActivityService) filterByScheduledDate(activities []model.Activity, tar
 	}
 
 	return filtered
+}
+
+func (s *ActivityService) CalculateStreak(userID, activityID uint, activity *model.Activity, loc *time.Location) (*dto.StreakInfo, error) {
+	collection := s.mongoDB.Collection("activity_records")
+
+	filter := bson.M{"activityId": activityID, "userId": userID}
+	opts := options.Find().SetSort(bson.D{{Key: "completionDate", Value: -1}})
+
+	cursor, err := collection.Find(context.Background(), filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := cursor.Close(context.Background()); err != nil {
+			log.Printf("failed to close cursor: %v", err)
+		}
+	}()
+
+	var records []model.ActivityRecord
+	if err := cursor.All(context.Background(), &records); err != nil {
+		return nil, err
+	}
+
+	if len(records) == 0 {
+		return &dto.StreakInfo{Current: 0, Longest: 0}, nil
+	}
+
+	switch activity.Frequency {
+	case model.FrequencyDaily:
+		return s.calculateDailyStreak(records, activity.CompletionAmount, loc), nil
+	case model.FrequencyWeekly:
+		return s.calculateWeeklyStreak(records, activity, loc), nil
+	case model.FrequencyMonthly:
+		return s.calculateMonthlyStreak(records, loc), nil
+	default:
+		return &dto.StreakInfo{Current: 0, Longest: 0}, nil
+	}
+}
+
+func (s *ActivityService) calculateDailyStreak(records []model.ActivityRecord, requiredAmount int, loc *time.Location) *dto.StreakInfo {
+	completionsByDay := make(map[string]int)
+	for _, r := range records {
+		day := r.CompletionDate.In(loc).Format("2006-01-02")
+		completionsByDay[day]++
+	}
+
+	today := time.Now().In(loc)
+	current := 0
+	streakActive := true
+
+	for i := 0; i < 365; i++ {
+		checkDate := today.AddDate(0, 0, -i)
+		dayKey := checkDate.Format("2006-01-02")
+		count := completionsByDay[dayKey]
+
+		if count >= requiredAmount {
+			if streakActive {
+				current++
+			}
+		} else {
+			if i == 0 {
+				continue
+			}
+			streakActive = false
+			break
+		}
+	}
+
+	longest := s.calculateLongestDailyStreak(completionsByDay, requiredAmount)
+	if current > longest {
+		longest = current
+	}
+
+	return &dto.StreakInfo{Current: current, Longest: longest}
+}
+
+func (s *ActivityService) calculateLongestDailyStreak(completionsByDay map[string]int, requiredAmount int) int {
+	if len(completionsByDay) == 0 {
+		return 0
+	}
+
+	var dates []time.Time
+	for dayStr := range completionsByDay {
+		if t, err := time.Parse("2006-01-02", dayStr); err == nil {
+			dates = append(dates, t)
+		}
+	}
+
+	sort.Slice(dates, func(i, j int) bool { return dates[i].Before(dates[j]) })
+
+	longest, streak := 0, 0
+	var prevDate time.Time
+
+	for _, d := range dates {
+		dayKey := d.Format("2006-01-02")
+		if completionsByDay[dayKey] < requiredAmount {
+			streak = 0
+			continue
+		}
+
+		if prevDate.IsZero() {
+			streak = 1
+		} else {
+			daysDiff := int(d.Sub(prevDate).Hours() / 24)
+			if daysDiff == 1 {
+				streak++
+			} else {
+				streak = 1
+			}
+		}
+
+		if streak > longest {
+			longest = streak
+		}
+		prevDate = d
+	}
+
+	return longest
+}
+
+func (s *ActivityService) calculateWeeklyStreak(records []model.ActivityRecord, activity *model.Activity, loc *time.Location) *dto.StreakInfo {
+	if activity.DayFrequency == "" {
+		return &dto.StreakInfo{Current: 0, Longest: 0}
+	}
+
+	var scheduledDays []string
+	if err := json.Unmarshal([]byte(activity.DayFrequency), &scheduledDays); err != nil {
+		return &dto.StreakInfo{Current: 0, Longest: 0}
+	}
+
+	completionsByDay := make(map[string]int)
+	for _, r := range records {
+		day := r.CompletionDate.In(loc).Format("2006-01-02")
+		completionsByDay[day]++
+	}
+
+	today := time.Now().In(loc)
+	current, longest := 0, 0
+
+	for weekOffset := 0; weekOffset < 52; weekOffset++ {
+		weekStart := today.AddDate(0, 0, -int(today.Weekday())-7*weekOffset)
+		weekComplete := true
+
+		for _, dayName := range scheduledDays {
+			dayOffset := dayNameToOffset(dayName)
+			targetDate := weekStart.AddDate(0, 0, dayOffset)
+
+			if targetDate.After(today) {
+				continue
+			}
+
+			dayKey := targetDate.Format("2006-01-02")
+			if completionsByDay[dayKey] < activity.CompletionAmount {
+				weekComplete = false
+				break
+			}
+		}
+
+		if weekComplete {
+			current++
+			if current > longest {
+				longest = current
+			}
+		} else {
+			if weekOffset > 0 {
+				break
+			}
+		}
+	}
+
+	return &dto.StreakInfo{Current: current, Longest: longest}
+}
+
+func dayNameToOffset(day string) int {
+	offsets := map[string]int{
+		"sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3,
+		"thursday": 4, "friday": 5, "saturday": 6,
+	}
+	return offsets[strings.ToLower(day)]
+}
+
+func (s *ActivityService) calculateMonthlyStreak(records []model.ActivityRecord, loc *time.Location) *dto.StreakInfo {
+	months := make(map[string]bool)
+	for _, r := range records {
+		monthKey := r.CompletionDate.In(loc).Format("2006-01")
+		months[monthKey] = true
+	}
+
+	today := time.Now().In(loc)
+	current, longest := 0, 0
+
+	for i := 0; i < 24; i++ {
+		checkMonth := today.AddDate(0, -i, 0).Format("2006-01")
+		if months[checkMonth] {
+			current++
+			if current > longest {
+				longest = current
+			}
+		} else {
+			if i > 0 {
+				break
+			}
+		}
+	}
+
+	return &dto.StreakInfo{Current: current, Longest: longest}
 }
