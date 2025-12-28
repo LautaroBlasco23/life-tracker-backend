@@ -8,6 +8,7 @@ import (
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/dto"
 	"life-tracker-backend/internal/domain/auth/model"
+	"life-tracker-backend/internal/domain/auth/repository"
 	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	userModel "life-tracker-backend/internal/domain/user/model"
@@ -18,8 +19,9 @@ import (
 )
 
 type AuthService struct {
-	db  *gorm.DB
-	cfg *config.Config
+	authRepo repository.AuthRepository
+	userRepo repository.UserRepository
+	cfg      *config.Config
 }
 
 type JWTClaims struct {
@@ -31,14 +33,18 @@ type JWTClaims struct {
 
 func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
 	return &AuthService{
-		db:  db,
-		cfg: cfg,
+		authRepo: repository.NewAuthRepository(db),
+		userRepo: repository.NewUserRepository(db),
+		cfg:      cfg,
 	}
 }
 
 func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, uint, error) {
-	var existingAuth model.Auth
-	if err := s.db.Where("email = ?", req.Email).First(&existingAuth).Error; err == nil {
+	exists, err := s.authRepo.EmailExists(req.Email)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to check email: %w", err)
+	}
+	if exists {
 		monitoring.AuthAttempts.WithLabelValues("failed_duplicate").Inc()
 		return nil, 0, errors.New("user already exists")
 	}
@@ -48,17 +54,14 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 		return nil, 0, err
 	}
 
-	tx := s.db.Begin()
-
 	user := &userModel.User{
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		Email:     req.Email,
 	}
 
-	if createErr := tx.Create(user).Error; createErr != nil {
-		tx.Rollback()
-		return nil, 0, createErr
+	if err := s.userRepo.Create(user); err != nil {
+		return nil, 0, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	auth := &model.Auth{
@@ -67,12 +70,9 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 		UserID:       user.ID,
 	}
 
-	if createErr := tx.Create(auth).Error; createErr != nil {
-		tx.Rollback()
-		return nil, 0, createErr
+	if err := s.authRepo.Create(auth); err != nil {
+		return nil, 0, fmt.Errorf("failed to create auth: %w", err)
 	}
-
-	tx.Commit()
 
 	monitoring.UserRegistrations.Inc()
 	monitoring.ActiveUsers.Inc()
@@ -86,10 +86,13 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 }
 
 func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, error) {
-	var auth model.Auth
-	if err := s.db.Where("email = ?", req.Email).First(&auth).Error; err != nil {
-		monitoring.AuthAttempts.WithLabelValues("failed_not_found").Inc()
-		return nil, 0, errors.New("invalid credentials")
+	auth, err := s.authRepo.FindByEmail(req.Email)
+	if err != nil {
+		if errors.Is(err, repository.ErrAuthNotFound) {
+			monitoring.AuthAttempts.WithLabelValues("failed_not_found").Inc()
+			return nil, 0, errors.New("invalid credentials")
+		}
+		return nil, 0, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {

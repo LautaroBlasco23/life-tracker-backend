@@ -10,6 +10,7 @@ import (
 
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/model"
+	"life-tracker-backend/internal/domain/activity/repository"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,14 +90,26 @@ func cleanDatabase(t *testing.T) {
 	}
 }
 
-func getTestService(t *testing.T) *ActivityService {
+type testContext struct {
+	service    *ActivityService
+	db         *gorm.DB
+	mongoDB    *mongo.Database
+	recordRepo repository.ActivityRecordRepository
+}
+
+func getTestService(t *testing.T) *testContext {
 	setupTestDatabases(t)
 	cleanDatabase(t)
-	return NewActivityService(testDB, testMongoDB)
+	return &testContext{
+		service:    NewActivityService(testDB, testMongoDB),
+		db:         testDB,
+		mongoDB:    testMongoDB,
+		recordRepo: repository.NewActivityRecordRepository(testMongoDB),
+	}
 }
 
 func TestCreateActivity(t *testing.T) {
-	service := getTestService(t)
+	tc := getTestService(t)
 
 	tests := []struct {
 		req     *dto.CreateActivityRequest
@@ -143,7 +156,7 @@ func TestCreateActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := service.CreateActivity(tt.userID, tt.req)
+			resp, err := tc.service.CreateActivity(tt.userID, tt.req)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -160,7 +173,7 @@ func TestCreateActivity(t *testing.T) {
 }
 
 func TestGetUserActivities(t *testing.T) {
-	service := getTestService(t)
+	tc := getTestService(t)
 	userID := uint(100)
 
 	active1 := model.Activity{
@@ -171,7 +184,7 @@ func TestGetUserActivities(t *testing.T) {
 		DayTime:          model.DayTimeMorning,
 		CompletionAmount: 1,
 	}
-	require.NoError(t, service.db.Create(&active1).Error)
+	require.NoError(t, tc.db.Create(&active1).Error)
 
 	inactive1 := model.Activity{
 		UserID:           userID,
@@ -181,7 +194,7 @@ func TestGetUserActivities(t *testing.T) {
 		DayTime:          model.DayTimeMorning,
 		CompletionAmount: 1,
 	}
-	require.NoError(t, service.db.Create(&inactive1).Error)
+	require.NoError(t, tc.db.Create(&inactive1).Error)
 
 	otherUser := model.Activity{
 		UserID:           2,
@@ -191,31 +204,30 @@ func TestGetUserActivities(t *testing.T) {
 		DayTime:          model.DayTimeMorning,
 		CompletionAmount: 1,
 	}
-	require.NoError(t, service.db.Create(&otherUser).Error)
+	require.NoError(t, tc.db.Create(&otherUser).Error)
 
 	t.Run("get only active activities", func(t *testing.T) {
-		resp, err := service.GetUserActivities(userID, false, testLoc)
+		resp, err := tc.service.GetUserActivities(userID, false, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "Active 1", resp[0].Title)
 	})
 
 	t.Run("get all activities including inactive", func(t *testing.T) {
-		resp, err := service.GetUserActivities(userID, true, testLoc)
+		resp, err := tc.service.GetUserActivities(userID, true, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 2)
 	})
 
 	t.Run("different user returns empty", func(t *testing.T) {
-		resp, err := service.GetUserActivities(999, false, testLoc)
+		resp, err := tc.service.GetUserActivities(999, false, testLoc)
 		assert.NoError(t, err)
 		assert.Empty(t, resp)
 	})
 }
 
 func TestGetActivity(t *testing.T) {
-	service := getTestService(t)
-
+	tc := getTestService(t)
 	userID := uint(101)
 
 	activity := model.Activity{
@@ -226,31 +238,30 @@ func TestGetActivity(t *testing.T) {
 		IsActive:         true,
 		CompletionAmount: 1,
 	}
-	require.NoError(t, service.db.Create(&activity).Error)
+	require.NoError(t, tc.db.Create(&activity).Error)
 
 	t.Run("existing activity", func(t *testing.T) {
-		resp, err := service.GetActivity(userID, activity.ID)
+		resp, err := tc.service.GetActivity(userID, activity.ID)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, activity.Title, resp.Title)
 	})
 
 	t.Run("non-existent activity", func(t *testing.T) {
-		resp, err := service.GetActivity(userID, 9999)
+		resp, err := tc.service.GetActivity(userID, 9999)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 	})
 
 	t.Run("wrong user", func(t *testing.T) {
-		resp, err := service.GetActivity(999, activity.ID)
+		resp, err := tc.service.GetActivity(999, activity.ID)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 	})
 }
 
 func TestUpdateActivity(t *testing.T) {
-	service := getTestService(t)
-
+	tc := getTestService(t)
 	userID := uint(102)
 
 	activity := model.Activity{
@@ -262,7 +273,7 @@ func TestUpdateActivity(t *testing.T) {
 		CompletionAmount: 1,
 		IsActive:         true,
 	}
-	require.NoError(t, service.db.Create(&activity).Error)
+	require.NoError(t, tc.db.Create(&activity).Error)
 
 	t.Run("update title and description", func(t *testing.T) {
 		newTitle := "Updated Title"
@@ -272,7 +283,7 @@ func TestUpdateActivity(t *testing.T) {
 			Description: &newDesc,
 		}
 
-		resp, err := service.UpdateActivity(userID, activity.ID, req)
+		resp, err := tc.service.UpdateActivity(userID, activity.ID, req)
 		assert.NoError(t, err)
 		assert.Equal(t, newTitle, resp.Title)
 		assert.Equal(t, newDesc, resp.Description)
@@ -284,22 +295,21 @@ func TestUpdateActivity(t *testing.T) {
 			IsActive: &isActive,
 		}
 
-		resp, err := service.UpdateActivity(userID, activity.ID, req)
+		resp, err := tc.service.UpdateActivity(userID, activity.ID, req)
 		assert.NoError(t, err)
 		assert.False(t, resp.IsActive)
 	})
 
 	t.Run("empty update returns unchanged", func(t *testing.T) {
 		req := &dto.UpdateActivityRequest{}
-		resp, err := service.UpdateActivity(userID, activity.ID, req)
+		resp, err := tc.service.UpdateActivity(userID, activity.ID, req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
 }
 
 func TestDeleteActivity(t *testing.T) {
-	service := getTestService(t)
-
+	tc := getTestService(t)
 	userID := uint(103)
 
 	activity := model.Activity{
@@ -310,27 +320,26 @@ func TestDeleteActivity(t *testing.T) {
 		CompletionAmount: 1,
 		IsActive:         true,
 	}
-	require.NoError(t, service.db.Create(&activity).Error)
+	require.NoError(t, tc.db.Create(&activity).Error)
 
 	t.Run("successful deletion", func(t *testing.T) {
-		err := service.DeleteActivity(userID, activity.ID)
+		err := tc.service.DeleteActivity(userID, activity.ID)
 		assert.NoError(t, err)
 
 		var deleted model.Activity
-		err = service.db.Unscoped().First(&deleted, activity.ID).Error
+		err = tc.db.Unscoped().First(&deleted, activity.ID).Error
 		assert.NoError(t, err)
 		assert.NotNil(t, deleted.DeletedAt)
 	})
 
 	t.Run("delete non-existent activity", func(t *testing.T) {
-		err := service.DeleteActivity(userID, 9999)
+		err := tc.service.DeleteActivity(userID, 9999)
 		assert.Error(t, err)
 	})
 }
 
 func TestRecordActivity(t *testing.T) {
-	service := getTestService(t)
-
+	tc := getTestService(t)
 	userID := uint(104)
 
 	activity := model.Activity{
@@ -341,14 +350,14 @@ func TestRecordActivity(t *testing.T) {
 		CompletionAmount: 1,
 		IsActive:         true,
 	}
-	require.NoError(t, service.db.Create(&activity).Error)
+	require.NoError(t, tc.db.Create(&activity).Error)
 
 	t.Run("record with current time", func(t *testing.T) {
 		req := &dto.RecordActivityRequest{
 			Notes: "Completed successfully",
 		}
 
-		resp, err := service.RecordActivity(userID, activity.ID, req)
+		resp, err := tc.service.RecordActivity(userID, activity.ID, req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, activity.ID, resp.ActivityID)
@@ -362,21 +371,21 @@ func TestRecordActivity(t *testing.T) {
 			Notes:          "Yesterday",
 		}
 
-		resp, err := service.RecordActivity(userID, activity.ID, req)
+		resp, err := tc.service.RecordActivity(userID, activity.ID, req)
 		assert.NoError(t, err)
 		assert.WithinDuration(t, customDate, resp.CompletionDate, time.Second)
 	})
 
 	t.Run("record for non-existent activity", func(t *testing.T) {
 		req := &dto.RecordActivityRequest{}
-		resp, err := service.RecordActivity(userID, 9999, req)
+		resp, err := tc.service.RecordActivity(userID, 9999, req)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 	})
 }
 
 func TestValidateDayFrequency(t *testing.T) {
-	service := getTestService(t)
+	tc := getTestService(t)
 
 	tests := []struct {
 		name    string
@@ -407,7 +416,7 @@ func TestValidateDayFrequency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := service.validateDayFrequency(tt.dayFreq)
+			err := tc.service.validateDayFrequency(tt.dayFreq)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -418,10 +427,10 @@ func TestValidateDayFrequency(t *testing.T) {
 }
 
 func TestShouldShowToday(t *testing.T) {
-	service := getTestService(t)
+	tc := getTestService(t)
 
 	now := time.Now().In(testLoc)
-	metadata := &CompletionMetadata{
+	metadata := &repository.CompletionMetadata{
 		MonthlyCompletions: make(map[uint]time.Time),
 		OneTimeCompletions: make(map[uint]time.Time),
 		TodayCompletions:   make(map[uint]int),
@@ -514,15 +523,14 @@ func TestShouldShowToday(t *testing.T) {
 			metadata.OneTimeCompletions = make(map[uint]time.Time)
 			tt.setup()
 
-			got := service.shouldShowToday(&tt.activity, metadata, now)
+			got := tc.service.shouldShowToday(&tt.activity, metadata, now)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestRevertLastCompletion(t *testing.T) {
-	service := getTestService(t)
-
+	tc := getTestService(t)
 	userID := uint(105)
 
 	activity := model.Activity{
@@ -533,7 +541,7 @@ func TestRevertLastCompletion(t *testing.T) {
 		CompletionAmount: 1,
 		IsActive:         true,
 	}
-	require.NoError(t, service.db.Create(&activity).Error)
+	require.NoError(t, tc.db.Create(&activity).Error)
 
 	t.Run("revert existing completion", func(t *testing.T) {
 		record := model.ActivityRecord{
@@ -544,11 +552,11 @@ func TestRevertLastCompletion(t *testing.T) {
 			CreatedAt:      time.Now(),
 		}
 
-		collection := service.mongoDB.Collection("activity_records")
+		collection := tc.mongoDB.Collection("activity_records")
 		_, err := collection.InsertOne(context.Background(), record)
 		require.NoError(t, err)
 
-		err = service.RevertLastCompletion(userID, activity.ID, nil, testLoc)
+		err = tc.service.RevertLastCompletion(userID, activity.ID, nil, testLoc)
 		assert.NoError(t, err)
 
 		count, err := collection.CountDocuments(context.Background(), bson.M{"_id": record.ID})
@@ -557,14 +565,14 @@ func TestRevertLastCompletion(t *testing.T) {
 	})
 
 	t.Run("revert with no completions", func(t *testing.T) {
-		err := service.RevertLastCompletion(userID, activity.ID, nil, testLoc)
+		err := tc.service.RevertLastCompletion(userID, activity.ID, nil, testLoc)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no completion found")
 	})
 }
 
 func TestGetTodayActivities(t *testing.T) {
-	service := getTestService(t)
+	tc := getTestService(t)
 	userID := uint(106)
 
 	daily := model.Activity{
@@ -575,10 +583,10 @@ func TestGetTodayActivities(t *testing.T) {
 		DayTime:          model.DayTimeMorning,
 		CompletionAmount: 1,
 	}
-	require.NoError(t, service.db.Create(&daily).Error)
+	require.NoError(t, tc.db.Create(&daily).Error)
 
 	t.Run("returns daily activities", func(t *testing.T) {
-		resp, err := service.GetTodayActivities(userID, testLoc)
+		resp, err := tc.service.GetTodayActivities(userID, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "Daily Activity", resp[0].Title)
@@ -586,7 +594,7 @@ func TestGetTodayActivities(t *testing.T) {
 }
 
 func TestGetUserActivitiesFiltered(t *testing.T) {
-	service := getTestService(t)
+	tc := getTestService(t)
 	userID := uint(107)
 
 	activity := model.Activity{
@@ -597,13 +605,13 @@ func TestGetUserActivitiesFiltered(t *testing.T) {
 		DayTime:          model.DayTimeMorning,
 		CompletionAmount: 1,
 	}
-	require.NoError(t, service.db.Create(&activity).Error)
+	require.NoError(t, tc.db.Create(&activity).Error)
 
 	t.Run("filter by frequency", func(t *testing.T) {
 		filter := &dto.ActivityFilter{
 			Frequency: "daily",
 		}
-		resp, err := service.GetUserActivitiesFiltered(userID, filter, testLoc)
+		resp, err := tc.service.GetUserActivitiesFiltered(userID, filter, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 	})
@@ -612,7 +620,7 @@ func TestGetUserActivitiesFiltered(t *testing.T) {
 		filter := &dto.ActivityFilter{
 			DayTime: "morning",
 		}
-		resp, err := service.GetUserActivitiesFiltered(userID, filter, testLoc)
+		resp, err := tc.service.GetUserActivitiesFiltered(userID, filter, testLoc)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 	})
