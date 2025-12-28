@@ -325,7 +325,8 @@ func (c *ActivityController) GetActivityStats(ctx *gin.Context) {
 		return
 	}
 
-	stats, err := c.activityService.GetActivityStats(userID, uint(activityID))
+	loc := getTimezone(ctx)
+	stats, err := c.activityService.GetActivityStats(userID, uint(activityID), loc)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{
 			"error": err.Error(),
