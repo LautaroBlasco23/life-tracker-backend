@@ -4,53 +4,58 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"life-tracker-backend/internal/domain/finance/dto"
 	"life-tracker-backend/internal/domain/finance/model"
+	"life-tracker-backend/internal/domain/finance/repository"
 	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/gorm"
 )
 
 type FinanceService struct {
-	db      *gorm.DB
-	mongoDB *mongo.Database
+	categoryRepo    repository.CategoryRepository
+	subcategoryRepo repository.SubcategoryRepository
+	transactionRepo repository.TransactionRepository
 }
 
 func NewFinanceService(db *gorm.DB, mongoDB *mongo.Database) *FinanceService {
 	return &FinanceService{
-		db:      db,
-		mongoDB: mongoDB,
+		categoryRepo:    repository.NewCategoryRepository(db),
+		subcategoryRepo: repository.NewSubcategoryRepository(db),
+		transactionRepo: repository.NewTransactionRepository(mongoDB),
 	}
 }
 
 func (s *FinanceService) InitializeSystemCategories() error {
 	for _, cat := range model.SystemCategories {
-		var existing model.Category
-		if err := s.db.Where("name = ?", cat.Name).First(&existing).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				if err := s.db.Create(&cat).Error; err != nil {
-					return fmt.Errorf("failed to create category %s: %w", cat.Name, err)
-				}
-				var createdCat model.Category
-				if err := s.db.Where("name = ?", cat.Name).First(&createdCat).Error; err != nil {
-					continue
-				}
-				if subcats, exists := model.SystemSubcategories[cat.Name]; exists {
-					for _, subName := range subcats {
-						subcat := model.Subcategory{
-							CategoryID: createdCat.ID,
-							Name:       subName,
-						}
-						if err := s.db.Create(&subcat).Error; err != nil {
-							fmt.Printf("Warning: failed to create subcategory %s: %v\n", subName, err)
-						}
+		_, err := s.categoryRepo.FindByName(cat.Name)
+		if err != nil {
+			if !errors.Is(err, repository.ErrCategoryNotFound) {
+				return fmt.Errorf("failed to check category %s: %w", cat.Name, err)
+			}
+
+			if err := s.categoryRepo.Create(&cat); err != nil {
+				return fmt.Errorf("failed to create category %s: %w", cat.Name, err)
+			}
+
+			createdCat, err := s.categoryRepo.FindByName(cat.Name)
+			if err != nil {
+				continue
+			}
+
+			if subcats, exists := model.SystemSubcategories[cat.Name]; exists {
+				for _, subName := range subcats {
+					subcat := model.Subcategory{
+						CategoryID: createdCat.ID,
+						Name:       subName,
+					}
+					if err := s.subcategoryRepo.Create(&subcat); err != nil {
+						fmt.Printf("Warning: failed to create subcategory %s: %v\n", subName, err)
 					}
 				}
 			}
@@ -60,17 +65,13 @@ func (s *FinanceService) InitializeSystemCategories() error {
 }
 
 func (s *FinanceService) GetCategories(transactionType *string) ([]*dto.CategoryResponse, error) {
-	var categories []model.Category
-	query := s.db
-	if transactionType != nil {
-		query = query.Where("type = ?", *transactionType)
-	}
-	if err := query.Order("name ASC").Find(&categories).Error; err != nil {
+	categories, err := s.categoryRepo.FindAll(transactionType)
+	if err != nil {
 		return nil, errors.New("failed to fetch categories")
 	}
 
-	var subcategories []model.Subcategory
-	if err := s.db.Find(&subcategories).Error; err != nil {
+	subcategories, err := s.subcategoryRepo.FindAll()
+	if err != nil {
 		return nil, errors.New("failed to fetch subcategories")
 	}
 
@@ -99,13 +100,13 @@ func (s *FinanceService) GetCategories(transactionType *string) ([]*dto.Category
 }
 
 func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error) {
-	var category model.Category
-	if err := s.db.Where("id = ?", req.CategoryID).First(&category).Error; err != nil {
+	category, err := s.categoryRepo.FindByID(req.CategoryID)
+	if err != nil {
 		return nil, errors.New("category not found")
 	}
 
-	var subcategory model.Subcategory
-	if err := s.db.Where("id = ? AND category_id = ?", req.SubcategoryID, req.CategoryID).First(&subcategory).Error; err != nil {
+	subcategory, err := s.subcategoryRepo.FindByIDAndCategoryID(req.SubcategoryID, req.CategoryID)
+	if err != nil {
 		return nil, errors.New("subcategory not found or doesn't belong to category")
 	}
 
@@ -127,9 +128,7 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		UpdatedAt:     time.Now(),
 	}
 
-	collection := s.mongoDB.Collection("transactions")
-	_, err := collection.InsertOne(context.Background(), transaction)
-	if err != nil {
+	if err := s.transactionRepo.Create(context.Background(), &transaction); err != nil {
 		return nil, errors.New("failed to create transaction")
 	}
 
@@ -147,11 +146,19 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 }
 
 func (s *FinanceService) GetTransactions(userID uint, transactionType *string, startDate, endDate *time.Time, month, year *int, categoryID *uint, limit int, loc *time.Location) ([]*dto.TransactionResponse, error) {
-	filter := s.buildTransactionFilter(userID, transactionType, categoryID, startDate, endDate, month, year, loc)
+	effectiveStart, effectiveEnd := s.calculateDateRange(startDate, endDate, month, year, loc)
 
-	transactions, err := s.fetchTransactions(filter, limit)
+	filter := repository.TransactionFilter{
+		UserID:          userID,
+		TransactionType: transactionType,
+		CategoryID:      categoryID,
+		StartDate:       effectiveStart,
+		EndDate:         effectiveEnd,
+	}
+
+	transactions, err := s.transactionRepo.FindByFilter(context.Background(), filter, limit)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("failed to fetch transactions")
 	}
 
 	categoryMap, subcategoryMap := s.loadCategoryMaps()
@@ -166,68 +173,19 @@ func (s *FinanceService) GetTransactions(userID uint, transactionType *string, s
 	return responses, nil
 }
 
-func (s *FinanceService) buildTransactionFilter(userID uint, transactionType *string, categoryID *uint, startDate, endDate *time.Time, month, year *int, loc *time.Location) bson.M {
-	filter := bson.M{"userId": userID}
-
-	if transactionType != nil {
-		filter["type"] = *transactionType
-	}
-	if categoryID != nil {
-		filter["categoryId"] = *categoryID
-	}
-
-	effectiveStart, effectiveEnd := s.calculateDateRange(startDate, endDate, month, year, loc)
-	if effectiveStart != nil || effectiveEnd != nil {
-		dateFilter := bson.M{}
-		if effectiveStart != nil {
-			dateFilter["$gte"] = effectiveStart.UTC()
-		}
-		if effectiveEnd != nil {
-			dateFilter["$lte"] = effectiveEnd.UTC()
-		}
-		filter["date"] = dateFilter
-	}
-
-	return filter
-}
-
-func (s *FinanceService) fetchTransactions(filter bson.M, limit int) ([]model.Transaction, error) {
-	collection := s.mongoDB.Collection("transactions")
-	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}})
-	if limit > 0 {
-		opts.SetLimit(int64(limit))
-	}
-
-	cursor, err := collection.Find(context.Background(), filter, opts)
-	if err != nil {
-		return nil, errors.New("failed to fetch transactions")
-	}
-	defer func() {
-		if err := cursor.Close(context.Background()); err != nil {
-			log.Printf("failed to close cursor: %v", err)
-		}
-	}()
-
-	var transactions []model.Transaction
-	if err := cursor.All(context.Background(), &transactions); err != nil {
-		return nil, errors.New("failed to decode transactions")
-	}
-	return transactions, nil
-}
-
 func (s *FinanceService) loadCategoryMaps() (map[uint]string, map[uint]string) {
 	categoryMap := make(map[uint]string)
 	subcategoryMap := make(map[uint]string)
 
-	var categories []model.Category
-	if err := s.db.Find(&categories).Error; err == nil {
+	categories, err := s.categoryRepo.FindAll(nil)
+	if err == nil {
 		for _, cat := range categories {
 			categoryMap[cat.ID] = cat.Name
 		}
 	}
 
-	var subcategories []model.Subcategory
-	if err := s.db.Find(&subcategories).Error; err == nil {
+	subcategories, err := s.subcategoryRepo.FindAll()
+	if err == nil {
 		for _, sub := range subcategories {
 			subcategoryMap[sub.ID] = sub.Name
 		}
@@ -242,22 +200,27 @@ func (s *FinanceService) GetTransaction(userID uint, transactionID string) (*dto
 		return nil, errors.New("invalid transaction ID")
 	}
 
-	collection := s.mongoDB.Collection("transactions")
-	var transaction model.Transaction
-	err = collection.FindOne(context.Background(), bson.M{"_id": objID, "userId": userID}).Decode(&transaction)
+	transaction, err := s.transactionRepo.FindByID(context.Background(), objID, userID)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return nil, errors.New("transaction not found")
 		}
 		return nil, errors.New("failed to fetch transaction")
 	}
 
-	var category model.Category
-	var subcategory model.Subcategory
-	s.db.Where("id = ?", transaction.CategoryID).First(&category)
-	s.db.Where("id = ?", transaction.SubcategoryID).First(&subcategory)
+	category, _ := s.categoryRepo.FindByID(transaction.CategoryID)
+	subcategory, _ := s.subcategoryRepo.FindByID(transaction.SubcategoryID)
 
-	return transaction.ToResponse(category.Name, subcategory.Name), nil
+	categoryName := ""
+	subcategoryName := ""
+	if category != nil {
+		categoryName = category.Name
+	}
+	if subcategory != nil {
+		subcategoryName = subcategory.Name
+	}
+
+	return transaction.ToResponse(categoryName, subcategoryName), nil
 }
 
 func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, req *dto.UpdateTransactionRequest) (*dto.TransactionResponse, error) {
@@ -266,9 +229,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 		return nil, errors.New("invalid transaction ID")
 	}
 
-	collection := s.mongoDB.Collection("transactions")
-	var transaction model.Transaction
-	err = collection.FindOne(context.Background(), bson.M{"_id": objID, "userId": userID}).Decode(&transaction)
+	transaction, err := s.transactionRepo.FindByID(context.Background(), objID, userID)
 	if err != nil {
 		return nil, errors.New("transaction not found")
 	}
@@ -282,8 +243,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 		updates["amount"] = *req.Amount
 	}
 	if req.CategoryID != nil {
-		var category model.Category
-		if err = s.db.Where("id = ?", *req.CategoryID).First(&category).Error; err != nil {
+		if _, err = s.categoryRepo.FindByID(*req.CategoryID); err != nil {
 			return nil, errors.New("category not found")
 		}
 		updates["categoryId"] = *req.CategoryID
@@ -293,8 +253,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 		if req.CategoryID != nil {
 			catID = *req.CategoryID
 		}
-		var subcategory model.Subcategory
-		if err = s.db.Where("id = ? AND category_id = ?", *req.SubcategoryID, catID).First(&subcategory).Error; err != nil {
+		if _, err = s.subcategoryRepo.FindByIDAndCategoryID(*req.SubcategoryID, catID); err != nil {
 			return nil, errors.New("subcategory not found or doesn't belong to category")
 		}
 		updates["subcategoryId"] = *req.SubcategoryID
@@ -306,8 +265,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 		updates["date"] = *req.Date
 	}
 
-	_, err = collection.UpdateOne(context.Background(), bson.M{"_id": objID}, bson.M{"$set": updates})
-	if err != nil {
+	if err := s.transactionRepo.Update(context.Background(), objID, updates); err != nil {
 		return nil, errors.New("failed to update transaction")
 	}
 
@@ -320,14 +278,11 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 		return errors.New("invalid transaction ID")
 	}
 
-	collection := s.mongoDB.Collection("transactions")
-	result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objID, "userId": userID})
-	if err != nil {
+	if err := s.transactionRepo.Delete(context.Background(), objID, userID); err != nil {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
+			return errors.New("transaction not found")
+		}
 		return errors.New("failed to delete transaction")
-	}
-
-	if result.DeletedCount == 0 {
-		return errors.New("transaction not found")
 	}
 
 	monitoring.TransactionsDeleted.Inc()
@@ -335,84 +290,34 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 }
 
 func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.Time, loc *time.Location) (*dto.FinanceSummaryResponse, error) {
-	collection := s.mongoDB.Collection("transactions")
-
 	startInLoc := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
 	endInLoc := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, loc)
 
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"userId": userID,
-				"date": bson.M{
-					"$gte": startInLoc.UTC(),
-					"$lte": endInLoc.UTC(),
-				},
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"type":       "$type",
-					"categoryId": "$categoryId",
-				},
-				"total": bson.M{"$sum": "$amount"},
-				"count": bson.M{"$sum": 1},
-			},
-		},
-	}
-
-	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	results, err := s.transactionRepo.Aggregate(context.Background(), userID, startInLoc, endInLoc)
 	if err != nil {
 		return nil, errors.New("failed to generate summary")
 	}
-	defer func() {
-		if err := cursor.Close(context.Background()); err != nil {
-			log.Printf("failed to close cursor: %v", err)
-		}
-	}()
 
-	var categories []model.Category
-	if err := s.db.Find(&categories).Error; err != nil {
-		return nil, errors.New("failed to fetch categories")
-	}
-
-	categoryMap := make(map[uint]string)
-	for _, cat := range categories {
-		categoryMap[cat.ID] = cat.Name
-	}
+	categoryMap, _ := s.loadCategoryMaps()
 
 	var totalIncome, totalOutcome float64
 	incomeByCategory := make(map[uint]*dto.CategorySummary)
 	outcomeByCategory := make(map[uint]*dto.CategorySummary)
 
-	for cursor.Next(context.Background()) {
-		var result struct {
-			ID struct {
-				Type       string `bson:"type"`
-				CategoryID uint   `bson:"categoryId"`
-			} `bson:"_id"`
-			Total float64 `bson:"total"`
-			Count int64   `bson:"count"`
-		}
-		if err := cursor.Decode(&result); err != nil {
-			continue
-		}
-
-		catName := categoryMap[result.ID.CategoryID]
+	for _, result := range results {
 		summary := &dto.CategorySummary{
-			CategoryID:   result.ID.CategoryID,
-			CategoryName: catName,
+			CategoryID:   result.CategoryID,
+			CategoryName: categoryMap[result.CategoryID],
 			Total:        result.Total,
 			Count:        result.Count,
 		}
 
-		if result.ID.Type == "income" {
+		if result.Type == "income" {
 			totalIncome += result.Total
-			incomeByCategory[result.ID.CategoryID] = summary
+			incomeByCategory[result.CategoryID] = summary
 		} else {
 			totalOutcome += result.Total
-			outcomeByCategory[result.ID.CategoryID] = summary
+			outcomeByCategory[result.CategoryID] = summary
 		}
 	}
 
@@ -445,52 +350,10 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 }
 
 func (s *FinanceService) GetMonthlyStats(userID uint, year int, loc *time.Location) ([]*dto.MonthlyStatsResponse, error) {
-	collection := s.mongoDB.Collection("transactions")
-
-	startDate := time.Date(year, 1, 1, 0, 0, 0, 0, loc)
-	endDate := time.Date(year, 12, 31, 23, 59, 59, 999999999, loc)
-
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"userId": userID,
-				"date": bson.M{
-					"$gte": startDate.UTC(),
-					"$lte": endDate.UTC(),
-				},
-			},
-		},
-		{
-			"$addFields": bson.M{
-				"localDate": bson.M{
-					"$dateToParts": bson.M{
-						"date":     "$date",
-						"timezone": loc.String(),
-					},
-				},
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"month": "$localDate.month",
-					"type":  "$type",
-				},
-				"total": bson.M{"$sum": "$amount"},
-				"count": bson.M{"$sum": 1},
-			},
-		},
-	}
-
-	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	results, err := s.transactionRepo.AggregateMonthly(context.Background(), userID, year, loc)
 	if err != nil {
 		return nil, errors.New("failed to generate monthly stats")
 	}
-	defer func() {
-		if err := cursor.Close(context.Background()); err != nil {
-			log.Printf("failed to close cursor: %v", err)
-		}
-	}()
 
 	monthlyData := make(map[int]struct {
 		income  float64
@@ -498,27 +361,15 @@ func (s *FinanceService) GetMonthlyStats(userID uint, year int, loc *time.Locati
 		count   int64
 	})
 
-	for cursor.Next(context.Background()) {
-		var result struct {
-			ID struct {
-				Type  string `bson:"type"`
-				Month int    `bson:"month"`
-			} `bson:"_id"`
-			Total float64 `bson:"total"`
-			Count int64   `bson:"count"`
-		}
-		if err := cursor.Decode(&result); err != nil {
-			continue
-		}
-
-		data := monthlyData[result.ID.Month]
-		if result.ID.Type == "income" {
+	for _, result := range results {
+		data := monthlyData[result.Month]
+		if result.Type == "income" {
 			data.income = result.Total
 		} else {
 			data.outcome = result.Total
 		}
 		data.count += result.Count
-		monthlyData[result.ID.Month] = data
+		monthlyData[result.Month] = data
 	}
 
 	stats := make([]*dto.MonthlyStatsResponse, 0, 12)
@@ -559,7 +410,6 @@ func (s *FinanceService) calculateDateRange(startDate, endDate *time.Time, month
 
 	if startDate != nil || endDate != nil {
 		var effectiveStart, effectiveEnd *time.Time
-
 		if startDate != nil {
 			start := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
 			effectiveStart = &start
