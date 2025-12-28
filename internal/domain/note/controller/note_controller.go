@@ -97,7 +97,7 @@ func (c *NoteController) UpdateNote(ctx *gin.Context) {
 	}
 
 	var req dto.UpdateNoteRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err = ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}

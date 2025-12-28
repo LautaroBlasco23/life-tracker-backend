@@ -78,7 +78,7 @@ func (s *TimeService) UpdateRecord(userID, recordID uint, req *dto.UpdateTimeRec
 		return record.ToResponse(), nil
 	}
 
-	if err := s.repo.Update(record, updates); err != nil {
+	if err = s.repo.Update(record, updates); err != nil {
 		return nil, errors.New("failed to update time record")
 	}
 

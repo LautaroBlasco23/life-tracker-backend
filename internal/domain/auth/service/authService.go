@@ -60,7 +60,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 		Email:     req.Email,
 	}
 
-	if err := s.userRepo.Create(user); err != nil {
+	if err = s.userRepo.Create(user); err != nil {
 		return nil, 0, fmt.Errorf("failed to create user: %w", err)
 	}
 
@@ -70,7 +70,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 		UserID:       user.ID,
 	}
 
-	if err := s.authRepo.Create(auth); err != nil {
+	if err = s.authRepo.Create(auth); err != nil {
 		return nil, 0, fmt.Errorf("failed to create auth: %w", err)
 	}
 
@@ -95,7 +95,7 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, er
 		return nil, 0, err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
 		monitoring.AuthAttempts.WithLabelValues("failed_password").Inc()
 		return nil, 0, errors.New("invalid credentials")
 	}

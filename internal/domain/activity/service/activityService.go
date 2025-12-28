@@ -497,7 +497,6 @@ func (s *ActivityService) calculateDailyStreak(records []model.ActivityRecord, r
 			if i == 0 {
 				continue
 			}
-			streakActive = false
 			break
 		}
 	}
