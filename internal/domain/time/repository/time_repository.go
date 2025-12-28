@@ -13,9 +13,9 @@ import (
 var ErrTimeRecordNotFound = errors.New("time record not found")
 
 type TimeRecordFilter struct {
-	Category  string
 	StartDate *time.Time
 	EndDate   *time.Time
+	Category  string
 }
 
 type TimeRecordRepository interface {

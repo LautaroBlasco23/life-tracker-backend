@@ -23,11 +23,11 @@ var (
 )
 
 type TransactionFilter struct {
-	UserID          uint
 	TransactionType *string
 	CategoryID      *uint
 	StartDate       *time.Time
 	EndDate         *time.Time
+	UserID          uint
 }
 
 type AggregationResult struct {
@@ -38,8 +38,8 @@ type AggregationResult struct {
 }
 
 type MonthlyAggregationResult struct {
-	Month int
 	Type  string
+	Month int
 	Total float64
 	Count int64
 }
