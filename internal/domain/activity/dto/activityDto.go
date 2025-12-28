@@ -24,18 +24,18 @@ type UpdateActivityRequest struct {
 type ActivityResponse struct {
 	CreatedAt        time.Time   `json:"createdAt"`
 	UpdatedAt        time.Time   `json:"updatedAt"`
-	Description      string      `json:"description"`
-	Frequency        string      `json:"frequency"`
+	Streak           *StreakInfo `json:"streak,omitempty"`
+	Title            string      `json:"title"`
 	DayFrequency     string      `json:"dayFrequency,omitempty"`
 	DayTime          string      `json:"dayTime"`
-	Title            string      `json:"title"`
+	Frequency        string      `json:"frequency"`
+	Description      string      `json:"description"`
 	ID               uint        `json:"id"`
 	CompletionAmount int         `json:"completionAmount"`
 	UserID           uint        `json:"userId"`
 	TodayCompletions int         `json:"todayCompletions"`
 	IsActive         bool        `json:"isActive"`
 	IsCompletedToday bool        `json:"isCompletedToday"`
-	Streak           *StreakInfo `json:"streak,omitempty"`
 }
 
 // Activity completion DTOs
