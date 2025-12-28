@@ -148,7 +148,7 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		return activity.ToResponse(), nil
 	}
 
-	if err := s.activityRepo.Update(activity, updates); err != nil {
+	if err = s.activityRepo.Update(activity, updates); err != nil {
 		return nil, errors.New("failed to update activity")
 	}
 
@@ -387,7 +387,8 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 
 	var targetDate time.Time
 	if filter.ScheduledFor != "" {
-		parsed, err := time.ParseInLocation("2006-01-02", filter.ScheduledFor, loc)
+		var parsed time.Time
+		parsed, err = time.ParseInLocation("2006-01-02", filter.ScheduledFor, loc)
 		if err != nil {
 			return nil, errors.New("invalid date format, use YYYY-MM-DD")
 		}
@@ -596,10 +597,8 @@ func (s *ActivityService) calculateWeeklyStreak(records []model.ActivityRecord, 
 			if current > longest {
 				longest = current
 			}
-		} else {
-			if weekOffset > 0 {
-				break
-			}
+		} else if weekOffset > 0 {
+			break
 		}
 	}
 
@@ -631,10 +630,8 @@ func (s *ActivityService) calculateMonthlyStreak(records []model.ActivityRecord,
 			if current > longest {
 				longest = current
 			}
-		} else {
-			if i > 0 {
-				break
-			}
+		} else if i > 0 {
+			break
 		}
 	}
 
