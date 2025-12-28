@@ -208,13 +208,19 @@ func (s *FinanceService) GetTransaction(userID uint, transactionID string) (*dto
 		return nil, errors.New("failed to fetch transaction")
 	}
 
-	category, _ := s.categoryRepo.FindByID(transaction.CategoryID)
-	subcategory, _ := s.subcategoryRepo.FindByID(transaction.SubcategoryID)
+	var categoryName, subcategoryName string
 
-	categoryName := ""
-	subcategoryName := ""
+	category, err := s.categoryRepo.FindByID(transaction.CategoryID)
+	if err != nil && !errors.Is(err, repository.ErrCategoryNotFound) {
+		return nil, errors.New("failed to fetch category")
+	}
 	if category != nil {
 		categoryName = category.Name
+	}
+
+	subcategory, err := s.subcategoryRepo.FindByID(transaction.SubcategoryID)
+	if err != nil && !errors.Is(err, repository.ErrSubcategoryNotFound) {
+		return nil, errors.New("failed to fetch subcategory")
 	}
 	if subcategory != nil {
 		subcategoryName = subcategory.Name
