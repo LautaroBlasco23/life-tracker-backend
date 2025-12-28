@@ -81,6 +81,10 @@ type Activity struct {
 }
 
 func (a *Activity) ToResponse() *dto.ActivityResponse {
+	return a.ToResponseWithCompletions(0, nil)
+}
+
+func (a *Activity) ToResponseWithCompletions(todayCompletions int, streak *dto.StreakInfo) *dto.ActivityResponse {
 	return &dto.ActivityResponse{
 		ID:               a.ID,
 		UserID:           a.UserID,
@@ -93,14 +97,8 @@ func (a *Activity) ToResponse() *dto.ActivityResponse {
 		IsActive:         a.IsActive,
 		CreatedAt:        a.CreatedAt,
 		UpdatedAt:        a.UpdatedAt,
-		TodayCompletions: 0,
-		IsCompletedToday: false,
+		TodayCompletions: todayCompletions,
+		IsCompletedToday: todayCompletions >= a.CompletionAmount,
+		Streak:           streak,
 	}
-}
-
-func (a *Activity) ToResponseWithCompletions(todayCompletions int) *dto.ActivityResponse {
-	response := a.ToResponse()
-	response.TodayCompletions = todayCompletions
-	response.IsCompletedToday = todayCompletions >= a.CompletionAmount
-	return response
 }

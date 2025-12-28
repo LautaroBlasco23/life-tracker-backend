@@ -22,19 +22,20 @@ type UpdateActivityRequest struct {
 }
 
 type ActivityResponse struct {
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
-	Description      string    `json:"description"`
-	Frequency        string    `json:"frequency"`
-	DayFrequency     string    `json:"dayFrequency,omitempty"`
-	DayTime          string    `json:"dayTime"`
-	Title            string    `json:"title"`
-	ID               uint      `json:"id"`
-	CompletionAmount int       `json:"completionAmount"`
-	UserID           uint      `json:"userId"`
-	TodayCompletions int       `json:"todayCompletions"`
-	IsActive         bool      `json:"isActive"`
-	IsCompletedToday bool      `json:"isCompletedToday"`
+	CreatedAt        time.Time   `json:"createdAt"`
+	UpdatedAt        time.Time   `json:"updatedAt"`
+	Description      string      `json:"description"`
+	Frequency        string      `json:"frequency"`
+	DayFrequency     string      `json:"dayFrequency,omitempty"`
+	DayTime          string      `json:"dayTime"`
+	Title            string      `json:"title"`
+	ID               uint        `json:"id"`
+	CompletionAmount int         `json:"completionAmount"`
+	UserID           uint        `json:"userId"`
+	TodayCompletions int         `json:"todayCompletions"`
+	IsActive         bool        `json:"isActive"`
+	IsCompletedToday bool        `json:"isCompletedToday"`
+	Streak           *StreakInfo `json:"streak,omitempty"`
 }
 
 // Activity completion DTOs
@@ -70,4 +71,9 @@ type ActivityFilter struct {
 
 type RevertCompletionRequest struct {
 	TargetDate *time.Time `json:"targetDate,omitempty"`
+}
+
+type StreakInfo struct {
+	Current int `json:"current"`
+	Longest int `json:"longest"`
 }
