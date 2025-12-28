@@ -9,6 +9,7 @@ import (
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/database"
 	"life-tracker-backend/internal/domain/auth/routes"
+	noteRoutes "life-tracker-backend/internal/domain/note/routes"
 	timeRoutes "life-tracker-backend/internal/domain/time/routes"
 	"life-tracker-backend/internal/infrastructure/imagestore"
 	"life-tracker-backend/internal/middleware"
@@ -108,6 +109,7 @@ func run() error {
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
 			financeRoutes.RegisterFinanceRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
 			timeRoutes.RegisterTimeRoutes(protected, dbs.PostgreSQL)
+			noteRoutes.RegisterNoteRoutes(protected, dbs.PostgreSQL)
 		}
 	}
 

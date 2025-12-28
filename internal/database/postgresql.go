@@ -12,6 +12,7 @@ import (
 	activityModel "life-tracker-backend/internal/domain/activity/model"
 	"life-tracker-backend/internal/domain/auth/model"
 	financeModel "life-tracker-backend/internal/domain/finance/model"
+	noteModel "life-tracker-backend/internal/domain/note/model"
 	timeModel "life-tracker-backend/internal/domain/time/model"
 	userModel "life-tracker-backend/internal/domain/user/model"
 )
@@ -36,6 +37,7 @@ func InitializePostgreSQL(cfg *config.Config) (*gorm.DB, error) {
 		&financeModel.Category{},
 		&financeModel.Subcategory{},
 		&timeModel.TimeRecord{},
+		&noteModel.Note{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate PostgreSQL tables: %w", err)
 	}
