@@ -190,3 +190,50 @@ func (s *AuthService) validateToken(tokenString string) (*JWTClaims, error) {
 
 	return nil, errors.New("invalid token")
 }
+
+func (s *AuthService) UpdatePassword(userID uint, req *dto.UpdatePasswordRequest) error {
+	auth, err := s.authRepo.FindByUserID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to find user: %w", err)
+	}
+
+	if err = bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	return s.authRepo.UpdatePassword(userID, string(hashedPassword))
+}
+
+func (s *AuthService) UpdateEmail(userID uint, req *dto.UpdateEmailRequest) (*dto.TokenResponse, error) {
+	auth, err := s.authRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	if err = bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
+		return nil, errors.New("password is incorrect")
+	}
+
+	if auth.Email == req.NewEmail {
+		return nil, errors.New("new email is the same as current email")
+	}
+
+	exists, err := s.authRepo.EmailExists(req.NewEmail)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check email: %w", err)
+	}
+	if exists {
+		return nil, errors.New("email already in use")
+	}
+
+	if err = s.authRepo.UpdateEmail(userID, req.NewEmail); err != nil {
+		return nil, fmt.Errorf("failed to update email: %w", err)
+	}
+
+	return s.generateTokens(userID, req.NewEmail)
+}
