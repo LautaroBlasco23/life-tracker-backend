@@ -4,26 +4,49 @@ run:
   tests: false
 linters:
   enable:
+    # correctness
     - errcheck
     - govet
     - ineffassign
     - staticcheck
+    - unused
+    - nilerr
+    - errorlint
+    # security
     - gosec
+    # complexity
     - gocyclo
     - gocritic
+    # style (minimal)
+    - revive
+    - whitespace
   settings:
     errcheck:
       check-type-assertions: true
       check-blank: true
     govet:
-      enable-all: true
+      enable:
+        - shadow
+        - loopclosure
+        - nilness
     gocyclo:
       min-complexity: 15
     gocritic:
       enabled-tags: [diagnostic, performance]
       disabled-checks: [rangeValCopy]
+    revive:
+      rules:
+        - name: var-naming
+        - name: unexported-return
+        - name: early-return
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: increment-decrement
     gosec:
-      excludes: [G404]
+      excludes:
+        - G404
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
