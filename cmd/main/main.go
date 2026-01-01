@@ -8,7 +8,7 @@ import (
 
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/database"
-	"life-tracker-backend/internal/domain/auth/routes"
+	authRoutes "life-tracker-backend/internal/domain/auth/routes"
 	noteRoutes "life-tracker-backend/internal/domain/note/routes"
 	timeRoutes "life-tracker-backend/internal/domain/time/routes"
 	"life-tracker-backend/internal/infrastructure/imagestore"
@@ -99,7 +99,7 @@ func run() error {
 	api := r.Group("/api")
 	{
 		// Auth routes (public)
-		routes.RegisterAuthRoutes(api, dbs.PostgreSQL, cfg, imageClient)
+		authRoutes.RegisterAuthRoutes(api, dbs.PostgreSQL, cfg, imageClient)
 
 		// Protected routes
 		protected := api.Group("")
