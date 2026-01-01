@@ -12,18 +12,26 @@ import (
 )
 
 func RegisterAuthRoutes(router *gin.RouterGroup, db *gorm.DB, cfg *config.Config, imageClient *imagestore.Client) {
-	// Create services
 	authService := service.NewAuthService(db, cfg)
 	userService := userService.NewUserService(db, imageClient)
-
-	// Create controller with both services
 	authController := controller.NewAuthController(authService, userService)
 
-	// Register routes
 	authGroup := router.Group("/auth")
 	{
 		authGroup.POST("/register", authController.Register)
 		authGroup.POST("/login", authController.Login)
 		authGroup.POST("/refresh", authController.RefreshToken)
+	}
+}
+
+func RegisterProtectedAuthRoutes(router *gin.RouterGroup, db *gorm.DB, cfg *config.Config, imageClient *imagestore.Client) {
+	authService := service.NewAuthService(db, cfg)
+	userService := userService.NewUserService(db, imageClient)
+	authController := controller.NewAuthController(authService, userService)
+
+	authGroup := router.Group("/auth")
+	{
+		authGroup.PUT("/password", authController.UpdatePassword)
+		authGroup.PUT("/email", authController.UpdateEmail)
 	}
 }
