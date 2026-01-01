@@ -143,7 +143,13 @@ func (c *AuthController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.authService.UpdatePassword(userID.(uint), &req); err != nil {
+	uid, ok := userID.(uint)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	if err := c.authService.UpdatePassword(uid, &req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -158,6 +164,12 @@ func (c *AuthController) UpdateEmail(ctx *gin.Context) {
 		return
 	}
 
+	uid, ok := userID.(uint)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
+		return
+	}
+
 	var req dto.UpdateEmailRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -167,7 +179,7 @@ func (c *AuthController) UpdateEmail(ctx *gin.Context) {
 		return
 	}
 
-	tokens, err := c.authService.UpdateEmail(userID.(uint), &req)
+	tokens, err := c.authService.UpdateEmail(uid, &req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
