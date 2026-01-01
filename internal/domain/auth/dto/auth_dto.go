@@ -22,3 +22,13 @@ type TokenResponse struct {
 type RefreshRequest struct {
 	RefreshToken string `json:"refreshToken" binding:"required"`
 }
+
+type UpdatePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword" binding:"required"`
+	NewPassword     string `json:"newPassword" binding:"required,min=6"`
+}
+
+type UpdateEmailRequest struct {
+	Password string `json:"password" binding:"required"`
+	NewEmail string `json:"newEmail" binding:"required,email"`
+}
