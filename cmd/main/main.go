@@ -105,6 +105,7 @@ func run() error {
 		protected := api.Group("")
 		protected.Use(middleware.JWTAuthMiddleware(cfg.JWTSecret))
 		{
+			authRoutes.RegisterProtectedAuthRoutes(protected, dbs.PostgreSQL, cfg, imageClient)
 			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL, imageClient)
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
 			financeRoutes.RegisterFinanceRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
