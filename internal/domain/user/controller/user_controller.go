@@ -35,20 +35,36 @@ func getUserID(ctx *gin.Context) (uint, error) {
 	return userID, nil
 }
 
-func (c *UserController) GetProfile(ctx *gin.Context) {
+func getUserEmail(ctx *gin.Context) (string, error) {
+	value, exists := ctx.Get("email")
+	if !exists {
+		return "", errors.New("email not found in context")
+	}
+
+	email, ok := value.(string)
+	if !ok {
+		return "", errors.New("invalid email type in context")
+	}
+
+	return email, nil
+}
+
+func (c *UserController) GetMyProfile(ctx *gin.Context) {
 	userID, err := getUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	user, err := c.userService.GetProfile(userID)
+	email, err := getUserEmail(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := c.userService.GetMyProfile(userID, email)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -61,9 +77,13 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 func (c *UserController) UpdateProfile(ctx *gin.Context) {
 	userID, err := getUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	email, err := getUserEmail(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -76,11 +96,9 @@ func (c *UserController) UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userService.UpdateProfile(userID, &req)
+	user, err := c.userService.UpdateProfile(userID, email, &req)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -93,9 +111,7 @@ func (c *UserController) UpdateProfile(ctx *gin.Context) {
 func (c *UserController) GetAllUsers(ctx *gin.Context) {
 	users, err := c.userService.GetAllUsers()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -110,17 +126,13 @@ func (c *UserController) GetUserByID(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	userID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid user ID",
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
-	user, err := c.userService.GetProfile(uint(userID))
+	user, err := c.userService.GetUserByID(uint(userID))
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -134,27 +146,26 @@ func (c *UserController) DeleteUser(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	userID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid user ID",
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
 	if err := c.userService.DeleteUser(uint(userID)); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "User deleted successfully",
-	})
+	ctx.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
-// Image related methods
 func (c *UserController) UploadProfileImage(ctx *gin.Context) {
 	userID, err := getUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	email, err := getUserEmail(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -166,7 +177,7 @@ func (c *UserController) UploadProfileImage(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userService.UploadProfileImage(ctx.Request.Context(), userID, file)
+	user, err := c.userService.UploadProfileImage(ctx.Request.Context(), userID, email, file)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

@@ -17,16 +17,15 @@ type User struct {
 	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
 	FirstName     string         `json:"firstName" gorm:"not null"`
 	LastName      string         `json:"lastName" gorm:"not null"`
-	Email         string         `json:"email" gorm:"uniqueIndex;not null"`
 	ID            uint           `json:"id" gorm:"primaryKey"`
 }
 
-func (u *User) ToResponse() *dto.UserResponse {
+func (u *User) ToResponse(email string) *dto.UserResponse {
 	return &dto.UserResponse{
 		ID:            u.ID,
 		FirstName:     u.FirstName,
 		LastName:      u.LastName,
-		Email:         u.Email,
+		Email:         email,
 		ProfilePicURL: u.ProfilePicURL,
 		ThumbnailURL:  u.ThumbnailURL,
 		Timezone:      u.Timezone,

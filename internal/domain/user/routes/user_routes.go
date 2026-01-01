@@ -15,14 +15,13 @@ func RegisterUserRoutes(router *gin.RouterGroup, db *gorm.DB, imageClient *image
 
 	userGroup := router.Group("/users")
 	{
-		userGroup.GET("/profile", userController.GetProfile)
-		userGroup.PUT("/profile", userController.UpdateProfile)
+		userGroup.GET("/me", userController.GetMyProfile)
+		userGroup.PUT("/me", userController.UpdateProfile)
+		userGroup.POST("/me/image", userController.UploadProfileImage)
+		userGroup.DELETE("/me/image", userController.DeleteProfileImage)
+
 		userGroup.GET("", userController.GetAllUsers)
 		userGroup.GET("/:id", userController.GetUserByID)
 		userGroup.DELETE("/:id", userController.DeleteUser)
-
-		// Image related routes
-		userGroup.POST("/profile/image", userController.UploadProfileImage)
-		userGroup.DELETE("/profile/image", userController.DeleteProfileImage)
 	}
 }

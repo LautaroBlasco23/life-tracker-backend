@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"life-tracker-backend/internal/domain/user/dto"
-	"life-tracker-backend/internal/domain/user/model"
+	"life-tracker-backend/internal/domain/user/repository"
 	"life-tracker-backend/internal/infrastructure/imagestore"
 	"life-tracker-backend/internal/infrastructure/monitoring"
 
@@ -19,33 +19,43 @@ import (
 )
 
 type UserService struct {
-	db          *gorm.DB
+	repo        repository.UserRepository
 	imageClient *imagestore.Client
 }
 
 func NewUserService(db *gorm.DB, imageClient *imagestore.Client) *UserService {
 	return &UserService{
-		db:          db,
+		repo:        repository.NewUserRepository(db),
 		imageClient: imageClient,
 	}
 }
 
-func (s *UserService) GetProfile(userID uint) (*dto.UserResponse, error) {
-	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+func (s *UserService) GetMyProfile(userID uint, email string) (*dto.UserResponse, error) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, errors.New("user not found")
 		}
 		return nil, errors.New("failed to fetch user")
 	}
+	return user.ToResponse(email), nil
+}
 
-	return user.ToResponse(), nil
+func (s *UserService) GetUserByID(userID uint) (*dto.UserResponse, error) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to fetch user")
+	}
+	return user.ToResponse(""), nil
 }
 
 func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
-	var user model.User
-	if err := s.db.Select("timezone").First(&user, userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
 			return time.UTC, nil
 		}
 		return time.UTC, err
@@ -53,12 +63,39 @@ func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
 	return user.GetTimezoneLocation(), nil
 }
 
-func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
-	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
-		return nil, errors.New("user not found")
+func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to fetch user")
 	}
 
+	updates := buildUserUpdates(req)
+	if len(updates) == 0 {
+		return user.ToResponse(email), nil
+	}
+
+	if req.Timezone != nil {
+		if _, err = time.LoadLocation(*req.Timezone); err != nil {
+			return nil, errors.New("invalid timezone")
+		}
+	}
+
+	if err = s.repo.Update(user, updates); err != nil {
+		return nil, errors.New("failed to update user")
+	}
+
+	user, err = s.repo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch updated user")
+	}
+
+	return user.ToResponse(email), nil
+}
+
+func buildUserUpdates(req *dto.UpdateUserRequest) map[string]interface{} {
 	updates := make(map[string]interface{})
 	if req.FirstName != nil {
 		updates["first_name"] = *req.FirstName
@@ -70,55 +107,37 @@ func (s *UserService) UpdateProfile(userID uint, req *dto.UpdateUserRequest) (*d
 		updates["profile_pic_url"] = *req.ProfilePicURL
 	}
 	if req.Timezone != nil {
-		if _, err := time.LoadLocation(*req.Timezone); err != nil {
-			return nil, errors.New("invalid timezone")
-		}
 		updates["timezone"] = *req.Timezone
 	}
-
-	if len(updates) > 0 {
-		if err := s.db.Model(&user).Updates(updates).Error; err != nil {
-			return nil, errors.New("failed to update user")
-		}
-	}
-
-	if err := s.db.First(&user, userID).Error; err != nil {
-		return nil, errors.New("failed to fetch updated user")
-	}
-
-	return user.ToResponse(), nil
+	return updates
 }
 
 func (s *UserService) GetAllUsers() ([]*dto.UserResponse, error) {
-	var users []model.User
-	if err := s.db.Find(&users).Error; err != nil {
+	users, err := s.repo.FindAll()
+	if err != nil {
 		return nil, errors.New("failed to fetch users")
 	}
 
 	responses := make([]*dto.UserResponse, 0, len(users))
 	for i := range users {
-		responses = append(responses, users[i].ToResponse())
+		responses = append(responses, users[i].ToResponse(""))
 	}
-
 	return responses, nil
 }
 
 func (s *UserService) DeleteUser(userID uint) error {
-	result := s.db.Delete(&model.User{}, userID)
-	if result.Error != nil {
+	if err := s.repo.Delete(userID); err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return errors.New("user not found")
+		}
 		return errors.New("failed to delete user")
 	}
-	if result.RowsAffected == 0 {
-		return errors.New("user not found")
-	}
-
 	monitoring.ActiveUsers.Dec()
-
 	return nil
 }
 
-func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file *multipart.FileHeader) (*dto.UserResponse, error) {
-	if err := s.validateImageFile(file); err != nil {
+func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, email string, file *multipart.FileHeader) (*dto.UserResponse, error) {
+	if err := validateImageFile(file); err != nil {
 		return nil, err
 	}
 
@@ -127,8 +146,9 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 		return nil, errors.New("failed to open uploaded file")
 	}
 	defer func() {
-		if closeErr := src.Close(); closeErr != nil {
-			err = errors.Join(err, closeErr)
+		err = src.Close()
+		if err != nil {
+			fmt.Println(err)
 		}
 	}()
 
@@ -137,14 +157,14 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 		return nil, errors.New("failed to read file data")
 	}
 
-	var user model.User
-	if err = s.db.First(&user, userID).Error; err != nil {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
 		return nil, errors.New("user not found")
 	}
 
 	var oldImageID string
 	if user.ProfilePicURL != nil && *user.ProfilePicURL != "" {
-		oldImageID = s.extractImageIDFromURL(*user.ProfilePicURL)
+		oldImageID = extractImageIDFromURL(*user.ProfilePicURL)
 	}
 
 	originalURL, thumbnailURL, err := s.imageClient.UploadProfileImage(ctx, userID, imageData, file.Filename)
@@ -152,24 +172,30 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, file 
 		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}
 
-	user.ProfilePicURL = &originalURL
-	user.ThumbnailURL = &thumbnailURL
-	if err := s.db.Save(&user).Error; err != nil {
+	updates := map[string]interface{}{
+		"profile_pic_url": originalURL,
+		"thumbnail_url":   thumbnailURL,
+	}
+	if err = s.repo.Update(user, updates); err != nil {
 		return nil, errors.New("failed to update user profile")
 	}
 
 	if oldImageID != "" {
-		if err := s.imageClient.DeleteImage(ctx, oldImageID, fmt.Sprintf("%d", userID)); err != nil {
+		if err = s.imageClient.DeleteImage(ctx, oldImageID, fmt.Sprintf("%d", userID)); err != nil {
 			fmt.Printf("warning: failed to delete old profile image %s: %v\n", oldImageID, err)
 		}
 	}
 
-	return user.ToResponse(), nil
+	user, err = s.repo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return user.ToResponse(email), nil
 }
 
 func (s *UserService) DeleteProfileImage(ctx context.Context, userID uint) error {
-	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
 		return errors.New("user not found")
 	}
 
@@ -177,24 +203,25 @@ func (s *UserService) DeleteProfileImage(ctx context.Context, userID uint) error
 		return errors.New("no profile image to delete")
 	}
 
-	imageID := s.extractImageIDFromURL(*user.ProfilePicURL)
+	imageID := extractImageIDFromURL(*user.ProfilePicURL)
 	if imageID != "" {
 		if err := s.imageClient.DeleteImage(ctx, imageID, fmt.Sprintf("%d", userID)); err != nil {
 			return fmt.Errorf("failed to delete image: %w", err)
 		}
 	}
 
-	user.ProfilePicURL = nil
-	user.ThumbnailURL = nil
-
-	if err := s.db.Save(&user).Error; err != nil {
+	updates := map[string]interface{}{
+		"profile_pic_url": nil,
+		"thumbnail_url":   nil,
+	}
+	if err := s.repo.Update(user, updates); err != nil {
 		return errors.New("failed to update user profile")
 	}
 
 	return nil
 }
 
-func (s *UserService) validateImageFile(file *multipart.FileHeader) error {
+func validateImageFile(file *multipart.FileHeader) error {
 	const maxSize = 10 * 1024 * 1024
 	if file.Size > maxSize {
 		return errors.New("file size exceeds 10MB limit")
@@ -215,7 +242,7 @@ func (s *UserService) validateImageFile(file *multipart.FileHeader) error {
 	return nil
 }
 
-func (s *UserService) extractImageIDFromURL(url string) string {
+func extractImageIDFromURL(url string) string {
 	parts := strings.Split(url, "/")
 	if len(parts) == 0 {
 		return ""
