@@ -17,8 +17,11 @@ var (
 
 type AuthRepository interface {
 	FindByEmail(email string) (*model.Auth, error)
+	FindByUserID(userID uint) (*model.Auth, error)
 	Create(auth *model.Auth) error
 	EmailExists(email string) (bool, error)
+	UpdatePassword(userID uint, passwordHash string) error
+	UpdateEmail(userID uint, email string) error
 }
 
 type UserRepository interface {
@@ -84,4 +87,38 @@ func (r *GormUserRepository) FindByID(id uint) (*userModel.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *GormAuthRepository) FindByUserID(userID uint) (*model.Auth, error) {
+	var auth model.Auth
+	err := r.db.Where("user_id = ?", userID).First(&auth).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAuthNotFound
+		}
+		return nil, err
+	}
+	return &auth, nil
+}
+
+func (r *GormAuthRepository) UpdatePassword(userID uint, passwordHash string) error {
+	result := r.db.Model(&model.Auth{}).Where("user_id = ?", userID).Update("password_hash", passwordHash)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrAuthNotFound
+	}
+	return nil
+}
+
+func (r *GormAuthRepository) UpdateEmail(userID uint, email string) error {
+	result := r.db.Model(&model.Auth{}).Where("user_id = ?", userID).Update("email", email)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrAuthNotFound
+	}
+	return nil
 }
