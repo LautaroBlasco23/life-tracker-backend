@@ -57,7 +57,6 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 	user := &userModel.User{
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Email:     req.Email,
 	}
 
 	if err = s.userRepo.Create(user); err != nil {
@@ -77,7 +76,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 	monitoring.UserRegistrations.Inc()
 	monitoring.ActiveUsers.Inc()
 
-	tokens, err := s.generateTokens(user.ID, user.Email)
+	tokens, err := s.generateTokens(user.ID, req.Email)
 	if err != nil {
 		return nil, 0, err
 	}

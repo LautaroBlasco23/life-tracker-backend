@@ -482,23 +482,19 @@ func (s *ActivityService) calculateDailyStreak(records []model.ActivityRecord, r
 
 	today := time.Now().In(loc)
 	current := 0
-	streakActive := true
 
 	for i := 0; i < 365; i++ {
 		checkDate := today.AddDate(0, 0, -i)
 		dayKey := checkDate.Format("2006-01-02")
 		count := completionsByDay[dayKey]
 
-		if count >= requiredAmount {
-			if streakActive {
-				current++
-			}
-		} else {
+		if count < requiredAmount {
 			if i == 0 {
-				continue
+				continue // today not completed yet, check yesterday
 			}
-			break
+			break // streak broken
 		}
+		current++
 	}
 
 	longest := s.calculateLongestDailyStreak(completionsByDay, requiredAmount)

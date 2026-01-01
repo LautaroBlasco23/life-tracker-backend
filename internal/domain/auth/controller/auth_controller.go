@@ -43,7 +43,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 	}
 
 	// Get user profile data using the UserService
-	userProfile, err := c.userService.GetProfile(userID)
+	userProfile, err := c.userService.GetUserByID(userID)
 	if err != nil {
 		// If we can't get user profile, still return successful registration with tokens
 		ctx.JSON(http.StatusCreated, gin.H{
@@ -83,7 +83,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	}
 
 	// Get user profile data using the UserService
-	userProfile, err := c.userService.GetProfile(userID)
+	userProfile, err := c.userService.GetUserByID(userID)
 	if err != nil {
 		// If we can't get user profile, still return successful login with tokens
 		ctx.JSON(http.StatusOK, gin.H{
