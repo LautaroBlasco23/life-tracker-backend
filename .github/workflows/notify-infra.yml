@@ -1,0 +1,17 @@
+name: notify-infra
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger infra deploy
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.INFRA_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/lautaroblasco23/life-tracker-infra/dispatches \
+            -d '{"event_type":"redeploy"}'
