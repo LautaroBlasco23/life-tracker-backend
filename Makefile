@@ -30,6 +30,10 @@ code-check:
 	golangci-lint run --fix ./...
 
 dev: db-up
+	@until docker exec golang_api_postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
+	ENV_FILE=.env air -c .air.toml
+
+dev-app:
 	ENV_FILE=.env air -c .air.toml
 
 docker-up:
