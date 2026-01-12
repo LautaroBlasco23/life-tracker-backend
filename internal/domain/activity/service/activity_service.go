@@ -387,15 +387,30 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 
 	var targetDate time.Time
 	if filter.ScheduledFor != "" {
-		var parsed time.Time
-		parsed, err = time.ParseInLocation("2006-01-02", filter.ScheduledFor, loc)
+		targetDate, err = time.ParseInLocation("2006-01-02", filter.ScheduledFor, loc)
 		if err != nil {
 			return nil, errors.New("invalid date format, use YYYY-MM-DD")
 		}
-		targetDate = parsed
-		activities = s.filterByScheduledDate(activities, targetDate)
 	} else {
 		targetDate = time.Now().In(loc)
+	}
+
+	activityIDs := make([]uint, len(activities))
+	for i := range activities {
+		activityIDs[i] = activities[i].ID
+	}
+
+	metadata, err := s.recordRepo.GetCompletionMetadata(context.Background(), userID, activityIDs, loc)
+	if err != nil {
+		metadata = &repository.CompletionMetadata{
+			MonthlyCompletions: make(map[uint]time.Time),
+			OneTimeCompletions: make(map[uint]time.Time),
+			TodayCompletions:   make(map[uint]int),
+		}
+	}
+
+	if filter.ScheduledFor != "" {
+		activities = s.filterByScheduledDate(activities, targetDate, metadata)
 	}
 
 	completions, err := s.recordRepo.GetCompletionsForDate(context.Background(), userID, targetDate, loc)
@@ -418,12 +433,18 @@ func (s *ActivityService) GetUserActivitiesFiltered(userID uint, filter *dto.Act
 	return responses, nil
 }
 
-func (s *ActivityService) filterByScheduledDate(activities []model.Activity, targetDate time.Time) []model.Activity {
+func (s *ActivityService) filterByScheduledDate(activities []model.Activity, targetDate time.Time, metadata *repository.CompletionMetadata) []model.Activity {
 	var filtered []model.Activity
 	weekday := strings.ToLower(targetDate.Weekday().String())
+	startOfTargetDate := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
 
 	for i := range activities {
 		activity := &activities[i]
+
+		if activity.CreatedAt.After(startOfTargetDate.Add(24 * time.Hour)) {
+			continue
+		}
+
 		switch activity.Frequency {
 		case model.FrequencyDaily:
 			filtered = append(filtered, *activity)
@@ -443,8 +464,13 @@ func (s *ActivityService) filterByScheduledDate(activities []model.Activity, tar
 				}
 			}
 
-		case model.FrequencyMonthly, model.FrequencyOneTime:
+		case model.FrequencyMonthly:
 			filtered = append(filtered, *activity)
+
+		case model.FrequencyOneTime:
+			if _, completed := metadata.OneTimeCompletions[activity.ID]; !completed {
+				filtered = append(filtered, *activity)
+			}
 		}
 	}
 
