@@ -25,7 +25,7 @@ install-tools:
 	go install github.com/air-verse/air@latest
 	go install gotest.tools/gotestsum@latest
 
-code-check:
+code-check: 
 	gofumpt -l -w .
 	golangci-lint run --fix ./...
 
