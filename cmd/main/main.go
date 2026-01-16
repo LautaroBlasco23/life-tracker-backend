@@ -63,7 +63,7 @@ func run() error {
 	// Add middleware
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.CORSMiddleware(cfg.CORSAllowedOrigins))
 	r.Use(middleware.TimezoneMiddleware())
 	r.Use(middleware.PrometheusMiddleware())
 
