@@ -60,6 +60,14 @@ func run() error {
 	// Initialize router
 	r := gin.New()
 
+	err = r.SetTrustedProxies([]string{
+		"127.0.0.1",
+		"172.16.0.0/12", // docker bridge
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set trusted proxies: %w", err)
+	}
+
 	// Add middleware
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
