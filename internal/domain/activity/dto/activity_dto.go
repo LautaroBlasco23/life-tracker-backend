@@ -7,7 +7,7 @@ type CreateActivityRequest struct {
 	Description      string `json:"description" binding:"max=1000"`
 	Frequency        string `json:"frequency" binding:"required,oneof=daily weekly monthly oneTime"`
 	DayFrequency     string `json:"dayFrequency,omitempty"`
-	DayTime          string `json:"dayTime" binding:"required,oneof=morning afternoon evening"`
+	DayTime          string `json:"dayTime" binding:"required,oneof=notSpecified morning afternoon evening"`
 	CompletionAmount int    `json:"completionAmount" binding:"required,min=1"`
 }
 
@@ -17,7 +17,7 @@ type UpdateActivityRequest struct {
 	CompletionAmount *int    `json:"completionAmount,omitempty" binding:"omitempty,min=1"`
 	Frequency        *string `json:"frequency,omitempty" binding:"omitempty,oneof=daily weekly monthly oneTime"`
 	DayFrequency     *string `json:"dayFrequency,omitempty"`
-	DayTime          *string `json:"dayTime,omitempty" binding:"omitempty,oneof=morning afternoon evening"`
+	DayTime          *string `json:"dayTime,omitempty" binding:"omitempty,oneof=notSpecified morning afternoon evening"`
 	IsActive         *bool   `json:"isActive,omitempty"`
 }
 

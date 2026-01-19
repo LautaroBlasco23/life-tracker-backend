@@ -47,9 +47,10 @@ const (
 type DayTime string
 
 const (
-	DayTimeMorning   DayTime = "morning"
-	DayTimeAfternoon DayTime = "afternoon"
-	DayTimeEvening   DayTime = "evening"
+	DayTimeNotSpecified DayTime = "notSpecified"
+	DayTimeMorning      DayTime = "morning"
+	DayTimeAfternoon    DayTime = "afternoon"
+	DayTimeEvening      DayTime = "evening"
 )
 
 func (dt *DayTime) Scan(value interface{}) error {
@@ -73,7 +74,7 @@ type Activity struct {
 	Description      string         `json:"description" gorm:"type:text"`
 	Frequency        Frequency      `json:"frequency" gorm:"not null"`
 	DayFrequency     string         `json:"dayFrequency,omitempty" gorm:"type:text"`
-	DayTime          DayTime        `json:"dayTime" gorm:"not null;default:'morning'"`
+	DayTime          DayTime        `json:"dayTime" gorm:"not null;default:'notSpecified'"`
 	ID               uint           `json:"id" gorm:"primaryKey"`
 	UserID           uint           `json:"userId" gorm:"not null;index"`
 	CompletionAmount int            `json:"completionAmount" gorm:"not null;default:1"`
