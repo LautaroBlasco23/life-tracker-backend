@@ -15,6 +15,13 @@ const (
 	TransactionTypeOutcome TransactionType = "outcome"
 )
 
+type TransactionFrequency string
+
+const (
+	TransactionFrequencyFixed    TransactionFrequency = "fixed"
+	TransactionFrequencyVariable TransactionFrequency = "variable"
+)
+
 func (t *TransactionType) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
@@ -28,65 +35,44 @@ func (t TransactionType) Value() (driver.Value, error) {
 	return string(t), nil
 }
 
-type Category struct {
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt  `json:"-" gorm:"index"`
-	Name      string          `json:"name" gorm:"not null;size:100;uniqueIndex"`
-	Type      TransactionType `json:"type" gorm:"not null"`
-	Icon      string          `json:"icon,omitempty" gorm:"size:50"`
-	ID        uint            `json:"id" gorm:"primaryKey"`
+func (f *TransactionFrequency) Scan(value interface{}) error {
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("cannot scan type %T into TransactionFrequency", value)
+	}
+	*f = TransactionFrequency(str)
+	return nil
 }
 
-type Subcategory struct {
-	CreatedAt  time.Time      `json:"createdAt"`
-	UpdatedAt  time.Time      `json:"updatedAt"`
-	Category   *Category      `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
-	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
-	Name       string         `json:"name" gorm:"not null;size:100"`
-	Icon       string         `json:"icon,omitempty" gorm:"size:50"`
-	ID         uint           `json:"id" gorm:"primaryKey"`
-	CategoryID uint           `json:"categoryId" gorm:"not null;index"`
+func (f TransactionFrequency) Value() (driver.Value, error) {
+	return string(f), nil
+}
+
+type Category struct {
+	CreatedAt        time.Time            `json:"createdAt"`
+	UpdatedAt        time.Time            `json:"updatedAt"`
+	DeletedAt        gorm.DeletedAt       `json:"-" gorm:"index"`
+	Name             string               `json:"name" gorm:"not null;size:100;uniqueIndex"`
+	Type             TransactionType      `json:"type" gorm:"not null"`
+	Icon             string               `json:"icon,omitempty" gorm:"size:50"`
+	ApplicableToFreq TransactionFrequency `json:"applicableToFreq" gorm:"not null;size:20;default:variable"`
+	ID               uint                 `json:"id" gorm:"primaryKey"`
 }
 
 var SystemCategories = []Category{
-	{Name: "Salary", Type: TransactionTypeIncome, Icon: "💰"},
-	{Name: "Investments", Type: TransactionTypeIncome, Icon: "📈"},
-	{Name: "Freelance", Type: TransactionTypeIncome, Icon: "💼"},
-	{Name: "Refunds", Type: TransactionTypeIncome, Icon: "↩️"},
-	{Name: "Other Incomes", Type: TransactionTypeIncome, Icon: "🎁"},
-	{Name: "Services", Type: TransactionTypeOutcome, Icon: "🔧"},
-	{Name: "Housing", Type: TransactionTypeOutcome, Icon: "🏠"},
-	{Name: "Food", Type: TransactionTypeOutcome, Icon: "🍽️"},
-	{Name: "Taxes", Type: TransactionTypeOutcome, Icon: "📋"},
-	{Name: "Gym & Sports", Type: TransactionTypeOutcome, Icon: "⚽"},
-	{Name: "Entertainment", Type: TransactionTypeOutcome, Icon: "🎉"},
-	{Name: "Travel", Type: TransactionTypeOutcome, Icon: "✈️"},
-	{Name: "Gifts & Events", Type: TransactionTypeOutcome, Icon: "🎁"},
-	{Name: "Health", Type: TransactionTypeOutcome, Icon: "🏥"},
-	{Name: "Education", Type: TransactionTypeOutcome, Icon: "📚"},
-	{Name: "Transportation", Type: TransactionTypeOutcome, Icon: "🚗"},
-	{Name: "Pets", Type: TransactionTypeOutcome, Icon: "🐾"},
-	{Name: "Other Expenses", Type: TransactionTypeOutcome, Icon: "📦"},
-}
+	// INCOME
+	{Name: "Primary Income", Type: TransactionTypeIncome, Icon: "💰", ApplicableToFreq: TransactionFrequencyFixed},
+	{Name: "Side Income", Type: TransactionTypeIncome, Icon: "💼", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Investments", Type: TransactionTypeIncome, Icon: "📈", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Other Income", Type: TransactionTypeIncome, Icon: "🎁", ApplicableToFreq: TransactionFrequencyVariable},
 
-var SystemSubcategories = map[string][]string{
-	"Salary":         {"Monthly Wage", "Bonuses", "Commissions"},
-	"Investments":    {"Dividends", "Crypto Gains", "Interests"},
-	"Freelance":      {"Projects", "Side Jobs", "Consulting"},
-	"Refunds":        {"Tax Refund", "Returned Purchases"},
-	"Other Incomes":  {"Gifts", "One-time Payments"},
-	"Services":       {"Internet", "Phone", "Subscriptions", "Streaming"},
-	"Housing":        {"Rent", "Mortgage", "Insurance", "Maintenance"},
-	"Food":           {"Groceries", "Dining", "Delivery"},
-	"Taxes":          {"Property Tax", "Income Tax", "Bills"},
-	"Gym & Sports":   {"Memberships", "Football", "Classes"},
-	"Entertainment":  {"Movies", "Bars", "Concerts"},
-	"Travel":         {"Tickets", "Hotels", "Transport"},
-	"Gifts & Events": {"Birthdays", "Holidays"},
-	"Health":         {"Medicines", "Doctor Visits", "Therapy"},
-	"Education":      {"Courses", "Books", "Materials"},
-	"Transportation": {"Fuel", "Parking", "Public Transport"},
-	"Pets":           {"Food", "Vet", "Accessories"},
-	"Other Expenses": {"Uncategorized", "One-off Costs"},
+	// EXPENSE
+	{Name: "Housing & Utilities", Type: TransactionTypeOutcome, Icon: "🏠", ApplicableToFreq: TransactionFrequencyFixed},
+	{Name: "Food & Groceries", Type: TransactionTypeOutcome, Icon: "🍽️", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Transportation", Type: TransactionTypeOutcome, Icon: "🚗", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Health & Fitness", Type: TransactionTypeOutcome, Icon: "🏥", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Education", Type: TransactionTypeOutcome, Icon: "📚", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Entertainment & Travel", Type: TransactionTypeOutcome, Icon: "🎉", ApplicableToFreq: TransactionFrequencyVariable},
+	{Name: "Taxes & Fees", Type: TransactionTypeOutcome, Icon: "📋", ApplicableToFreq: TransactionFrequencyFixed},
+	{Name: "Pets & Misc", Type: TransactionTypeOutcome, Icon: "🐾", ApplicableToFreq: TransactionFrequencyVariable},
 }
