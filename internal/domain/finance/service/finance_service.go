@@ -349,7 +349,10 @@ func (s *FinanceService) calculateDateRange(startDate, endDate *time.Time, month
 		return effectiveStart, effectiveEnd
 	}
 
-	return nil, nil
+	now := time.Now().In(loc)
+	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	return &start, &end
 }
 
 func (s *FinanceService) categoryToResponse(category *model.Category) *dto.CategoryResponse {
