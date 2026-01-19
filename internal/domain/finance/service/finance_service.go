@@ -19,14 +19,12 @@ import (
 
 type FinanceService struct {
 	categoryRepo    repository.CategoryRepository
-	subcategoryRepo repository.SubcategoryRepository
 	transactionRepo repository.TransactionRepository
 }
 
 func NewFinanceService(db *gorm.DB, mongoDB *mongo.Database) *FinanceService {
 	return &FinanceService{
 		categoryRepo:    repository.NewCategoryRepository(db),
-		subcategoryRepo: repository.NewSubcategoryRepository(db),
 		transactionRepo: repository.NewTransactionRepository(mongoDB),
 	}
 }
@@ -38,63 +36,23 @@ func (s *FinanceService) InitializeSystemCategories() error {
 			if !errors.Is(err, repository.ErrCategoryNotFound) {
 				return fmt.Errorf("failed to check category %s: %w", cat.Name, err)
 			}
-
 			if err := s.categoryRepo.Create(&cat); err != nil {
 				return fmt.Errorf("failed to create category %s: %w", cat.Name, err)
-			}
-
-			createdCat, err := s.categoryRepo.FindByName(cat.Name)
-			if err != nil {
-				continue
-			}
-
-			if subcats, exists := model.SystemSubcategories[cat.Name]; exists {
-				for _, subName := range subcats {
-					subcat := model.Subcategory{
-						CategoryID: createdCat.ID,
-						Name:       subName,
-					}
-					if err := s.subcategoryRepo.Create(&subcat); err != nil {
-						fmt.Printf("Warning: failed to create subcategory %s: %v\n", subName, err)
-					}
-				}
 			}
 		}
 	}
 	return nil
 }
 
-func (s *FinanceService) GetCategories(transactionType *string) ([]*dto.CategoryResponse, error) {
-	categories, err := s.categoryRepo.FindAll(transactionType)
+func (s *FinanceService) GetCategories(transactionType *string, frequency *string) ([]*dto.CategoryResponse, error) {
+	categories, err := s.categoryRepo.FindAll(transactionType, frequency)
 	if err != nil {
 		return nil, errors.New("failed to fetch categories")
-	}
-
-	subcategories, err := s.subcategoryRepo.FindAll()
-	if err != nil {
-		return nil, errors.New("failed to fetch subcategories")
-	}
-
-	subcatMap := make(map[uint][]model.Subcategory)
-	for _, sub := range subcategories {
-		subcatMap[sub.CategoryID] = append(subcatMap[sub.CategoryID], sub)
 	}
 
 	responses := make([]*dto.CategoryResponse, len(categories))
 	for i := range categories {
 		responses[i] = s.categoryToResponse(&categories[i])
-		if subs, exists := subcatMap[categories[i].ID]; exists {
-			for _, sub := range subs {
-				responses[i].Subcategories = append(responses[i].Subcategories, dto.SubcategoryResponse{
-					ID:         sub.ID,
-					CategoryID: sub.CategoryID,
-					Name:       sub.Name,
-					Icon:       sub.Icon,
-					CreatedAt:  sub.CreatedAt,
-					UpdatedAt:  sub.UpdatedAt,
-				})
-			}
-		}
 	}
 	return responses, nil
 }
@@ -105,27 +63,22 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		return nil, errors.New("category not found")
 	}
 
-	subcategory, err := s.subcategoryRepo.FindByIDAndCategoryID(req.SubcategoryID, req.CategoryID)
-	if err != nil {
-		return nil, errors.New("subcategory not found or doesn't belong to category")
-	}
-
 	transactionDate := time.Now()
 	if !req.Date.IsZero() {
 		transactionDate = req.Date
 	}
 
 	transaction := model.Transaction{
-		ID:            primitive.NewObjectID(),
-		UserID:        userID,
-		Type:          model.TransactionType(req.Type),
-		Amount:        req.Amount,
-		CategoryID:    req.CategoryID,
-		SubcategoryID: req.SubcategoryID,
-		Description:   req.Description,
-		Date:          transactionDate,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:          primitive.NewObjectID(),
+		UserID:      userID,
+		Type:        model.TransactionType(req.Type),
+		Frequency:   model.TransactionFrequency(req.Frequency),
+		Amount:      req.Amount,
+		CategoryID:  req.CategoryID,
+		Description: req.Description,
+		Date:        transactionDate,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	if err := s.transactionRepo.Create(context.Background(), &transaction); err != nil {
@@ -142,15 +95,16 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		category.Name,
 	).Observe(transaction.Amount)
 
-	return transaction.ToResponse(category.Name, subcategory.Name), nil
+	return transaction.ToResponse(category.Name), nil
 }
 
-func (s *FinanceService) GetTransactions(userID uint, transactionType *string, startDate, endDate *time.Time, month, year *int, categoryID *uint, limit int, loc *time.Location) ([]*dto.TransactionResponse, error) {
+func (s *FinanceService) GetTransactions(userID uint, transactionType *string, frequency *string, startDate, endDate *time.Time, month, year *int, categoryID *uint, limit int, loc *time.Location) ([]*dto.TransactionResponse, error) {
 	effectiveStart, effectiveEnd := s.calculateDateRange(startDate, endDate, month, year, loc)
 
 	filter := repository.TransactionFilter{
 		UserID:          userID,
 		TransactionType: transactionType,
+		Frequency:       frequency,
 		CategoryID:      categoryID,
 		StartDate:       effectiveStart,
 		EndDate:         effectiveEnd,
@@ -161,37 +115,24 @@ func (s *FinanceService) GetTransactions(userID uint, transactionType *string, s
 		return nil, errors.New("failed to fetch transactions")
 	}
 
-	categoryMap, subcategoryMap := s.loadCategoryMaps()
+	categoryMap := s.loadCategoryMap()
 
 	responses := make([]*dto.TransactionResponse, len(transactions))
 	for i := range transactions {
-		responses[i] = transactions[i].ToResponse(
-			categoryMap[transactions[i].CategoryID],
-			subcategoryMap[transactions[i].SubcategoryID],
-		)
+		responses[i] = transactions[i].ToResponse(categoryMap[transactions[i].CategoryID])
 	}
 	return responses, nil
 }
 
-func (s *FinanceService) loadCategoryMaps() (map[uint]string, map[uint]string) {
+func (s *FinanceService) loadCategoryMap() map[uint]string {
 	categoryMap := make(map[uint]string)
-	subcategoryMap := make(map[uint]string)
-
-	categories, err := s.categoryRepo.FindAll(nil)
+	categories, err := s.categoryRepo.FindAll(nil, nil)
 	if err == nil {
 		for _, cat := range categories {
 			categoryMap[cat.ID] = cat.Name
 		}
 	}
-
-	subcategories, err := s.subcategoryRepo.FindAll()
-	if err == nil {
-		for _, sub := range subcategories {
-			subcategoryMap[sub.ID] = sub.Name
-		}
-	}
-
-	return categoryMap, subcategoryMap
+	return categoryMap
 }
 
 func (s *FinanceService) GetTransaction(userID uint, transactionID string) (*dto.TransactionResponse, error) {
@@ -208,25 +149,13 @@ func (s *FinanceService) GetTransaction(userID uint, transactionID string) (*dto
 		return nil, errors.New("failed to fetch transaction")
 	}
 
-	var categoryName, subcategoryName string
-
+	var categoryName string
 	category, err := s.categoryRepo.FindByID(transaction.CategoryID)
-	if err != nil && !errors.Is(err, repository.ErrCategoryNotFound) {
-		return nil, errors.New("failed to fetch category")
-	}
-	if category != nil {
+	if err == nil {
 		categoryName = category.Name
 	}
 
-	subcategory, err := s.subcategoryRepo.FindByID(transaction.SubcategoryID)
-	if err != nil && !errors.Is(err, repository.ErrSubcategoryNotFound) {
-		return nil, errors.New("failed to fetch subcategory")
-	}
-	if subcategory != nil {
-		subcategoryName = subcategory.Name
-	}
-
-	return transaction.ToResponse(categoryName, subcategoryName), nil
+	return transaction.ToResponse(categoryName), nil
 }
 
 func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, req *dto.UpdateTransactionRequest) (*dto.TransactionResponse, error) {
@@ -235,7 +164,7 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 		return nil, errors.New("invalid transaction ID")
 	}
 
-	transaction, err := s.transactionRepo.FindByID(context.Background(), objID, userID)
+	_, err = s.transactionRepo.FindByID(context.Background(), objID, userID)
 	if err != nil {
 		return nil, errors.New("transaction not found")
 	}
@@ -245,6 +174,9 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 	if req.Type != nil {
 		updates["type"] = *req.Type
 	}
+	if req.Frequency != nil {
+		updates["frequency"] = *req.Frequency
+	}
 	if req.Amount != nil {
 		updates["amount"] = *req.Amount
 	}
@@ -253,16 +185,6 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 			return nil, errors.New("category not found")
 		}
 		updates["categoryId"] = *req.CategoryID
-	}
-	if req.SubcategoryID != nil {
-		catID := transaction.CategoryID
-		if req.CategoryID != nil {
-			catID = *req.CategoryID
-		}
-		if _, err = s.subcategoryRepo.FindByIDAndCategoryID(*req.SubcategoryID, catID); err != nil {
-			return nil, errors.New("subcategory not found or doesn't belong to category")
-		}
-		updates["subcategoryId"] = *req.SubcategoryID
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
@@ -304,7 +226,7 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 		return nil, errors.New("failed to generate summary")
 	}
 
-	categoryMap, _ := s.loadCategoryMaps()
+	categoryMap := s.loadCategoryMap()
 
 	var totalIncome, totalOutcome float64
 	incomeByCategory := make(map[uint]*dto.CategorySummary)
@@ -432,12 +354,12 @@ func (s *FinanceService) calculateDateRange(startDate, endDate *time.Time, month
 
 func (s *FinanceService) categoryToResponse(category *model.Category) *dto.CategoryResponse {
 	return &dto.CategoryResponse{
-		ID:            category.ID,
-		Name:          category.Name,
-		Type:          string(category.Type),
-		Icon:          category.Icon,
-		Subcategories: []dto.SubcategoryResponse{},
-		CreatedAt:     category.CreatedAt,
-		UpdatedAt:     category.UpdatedAt,
+		ID:               category.ID,
+		Name:             category.Name,
+		Type:             string(category.Type),
+		Icon:             category.Icon,
+		ApplicableToFreq: string(category.ApplicableToFreq),
+		CreatedAt:        category.CreatedAt,
+		UpdatedAt:        category.UpdatedAt,
 	}
 }

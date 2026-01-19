@@ -41,6 +41,7 @@ func getTimezone(ctx *gin.Context) *time.Location {
 
 type transactionFilters struct {
 	transactionType *string
+	frequency       *string
 	startDate       *time.Time
 	endDate         *time.Time
 	month           *int
@@ -54,6 +55,9 @@ func parseTransactionFilters(ctx *gin.Context) transactionFilters {
 
 	if t := ctx.Query("type"); t != "" {
 		f.transactionType = &t
+	}
+	if freq := ctx.Query("frequency"); freq != "" {
+		f.frequency = &freq
 	}
 
 	f.month = parseIntInRange(ctx.Query("month"), 1, 12)
@@ -115,12 +119,15 @@ func parseDate(s string) *time.Time {
 }
 
 func (c *FinanceController) GetCategories(ctx *gin.Context) {
-	var transactionType *string
+	var transactionType, frequency *string
 	if t := ctx.Query("type"); t != "" {
 		transactionType = &t
 	}
+	if f := ctx.Query("frequency"); f != "" {
+		frequency = &f
+	}
 
-	categories, err := c.financeService.GetCategories(transactionType)
+	categories, err := c.financeService.GetCategories(transactionType, frequency)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -174,6 +181,7 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 	transactions, err := c.financeService.GetTransactions(
 		userID,
 		filters.transactionType,
+		filters.frequency,
 		filters.startDate,
 		filters.endDate,
 		filters.month,

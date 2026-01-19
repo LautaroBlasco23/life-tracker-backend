@@ -17,13 +17,13 @@ import (
 
 var (
 	ErrCategoryNotFound     = errors.New("category not found")
-	ErrSubcategoryNotFound  = errors.New("subcategory not found or doesn't belong to category")
 	ErrTransactionNotFound  = errors.New("transaction not found")
 	ErrInvalidTransactionID = errors.New("invalid transaction ID")
 )
 
 type TransactionFilter struct {
 	TransactionType *string
+	Frequency       *string
 	CategoryID      *uint
 	StartDate       *time.Time
 	EndDate         *time.Time
@@ -45,18 +45,10 @@ type MonthlyAggregationResult struct {
 }
 
 type CategoryRepository interface {
-	FindAll(transactionType *string) ([]model.Category, error)
+	FindAll(transactionType *string, frequency *string) ([]model.Category, error)
 	FindByID(id uint) (*model.Category, error)
 	FindByName(name string) (*model.Category, error)
 	Create(category *model.Category) error
-}
-
-type SubcategoryRepository interface {
-	FindAll() ([]model.Subcategory, error)
-	FindByID(id uint) (*model.Subcategory, error)
-	FindByCategoryID(categoryID uint) ([]model.Subcategory, error)
-	FindByIDAndCategoryID(id, categoryID uint) (*model.Subcategory, error)
-	Create(subcategory *model.Subcategory) error
 }
 
 type TransactionRepository interface {
@@ -77,11 +69,14 @@ func NewCategoryRepository(db *gorm.DB) CategoryRepository {
 	return &GormCategoryRepository{db: db}
 }
 
-func (r *GormCategoryRepository) FindAll(transactionType *string) ([]model.Category, error) {
+func (r *GormCategoryRepository) FindAll(transactionType *string, frequency *string) ([]model.Category, error) {
 	var categories []model.Category
 	query := r.db
 	if transactionType != nil {
 		query = query.Where("type = ?", *transactionType)
+	}
+	if frequency != nil {
+		query = query.Where("applicable_to_freq = ?", *frequency)
 	}
 	if err := query.Order("name ASC").Find(&categories).Error; err != nil {
 		return nil, err
@@ -113,57 +108,6 @@ func (r *GormCategoryRepository) FindByName(name string) (*model.Category, error
 
 func (r *GormCategoryRepository) Create(category *model.Category) error {
 	return r.db.Create(category).Error
-}
-
-type GormSubcategoryRepository struct {
-	db *gorm.DB
-}
-
-func NewSubcategoryRepository(db *gorm.DB) SubcategoryRepository {
-	return &GormSubcategoryRepository{db: db}
-}
-
-func (r *GormSubcategoryRepository) FindAll() ([]model.Subcategory, error) {
-	var subcategories []model.Subcategory
-	if err := r.db.Find(&subcategories).Error; err != nil {
-		return nil, err
-	}
-	return subcategories, nil
-}
-
-func (r *GormSubcategoryRepository) FindByID(id uint) (*model.Subcategory, error) {
-	var subcategory model.Subcategory
-	if err := r.db.Where("id = ?", id).First(&subcategory).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrSubcategoryNotFound
-		}
-		return nil, err
-	}
-	return &subcategory, nil
-}
-
-func (r *GormSubcategoryRepository) FindByCategoryID(categoryID uint) ([]model.Subcategory, error) {
-	var subcategories []model.Subcategory
-	if err := r.db.Where("category_id = ?", categoryID).Find(&subcategories).Error; err != nil {
-		return nil, err
-	}
-	return subcategories, nil
-}
-
-func (r *GormSubcategoryRepository) FindByIDAndCategoryID(id, categoryID uint) (*model.Subcategory, error) {
-	var subcategory model.Subcategory
-	err := r.db.Where("id = ? AND category_id = ?", id, categoryID).First(&subcategory).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrSubcategoryNotFound
-		}
-		return nil, err
-	}
-	return &subcategory, nil
-}
-
-func (r *GormSubcategoryRepository) Create(subcategory *model.Subcategory) error {
-	return r.db.Create(subcategory).Error
 }
 
 type MongoTransactionRepository struct {
@@ -198,6 +142,9 @@ func (r *MongoTransactionRepository) FindByFilter(ctx context.Context, filter Tr
 
 	if filter.TransactionType != nil {
 		bsonFilter["type"] = *filter.TransactionType
+	}
+	if filter.Frequency != nil {
+		bsonFilter["frequency"] = *filter.Frequency
 	}
 	if filter.CategoryID != nil {
 		bsonFilter["categoryId"] = *filter.CategoryID
