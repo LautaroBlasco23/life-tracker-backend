@@ -20,12 +20,14 @@ import (
 type FinanceService struct {
 	categoryRepo    repository.CategoryRepository
 	transactionRepo repository.TransactionRepository
+	paymentRepo     repository.PaymentRepository
 }
 
 func NewFinanceService(db *gorm.DB, mongoDB *mongo.Database) *FinanceService {
 	return &FinanceService{
 		categoryRepo:    repository.NewCategoryRepository(db),
 		transactionRepo: repository.NewTransactionRepository(mongoDB),
+		paymentRepo:     repository.NewPaymentRepository(mongoDB),
 	}
 }
 
@@ -81,6 +83,15 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		UpdatedAt:   time.Now(),
 	}
 
+	if req.Frequency == "fixed" {
+		transaction.Amount = 0
+		if req.PaymentFrequency != "" {
+			transaction.PaymentFrequency = model.PaymentFrequency(req.PaymentFrequency)
+		} else {
+			transaction.PaymentFrequency = model.PaymentFrequencyMonthly
+		}
+	}
+
 	if err := s.transactionRepo.Create(context.Background(), &transaction); err != nil {
 		return nil, errors.New("failed to create transaction")
 	}
@@ -122,6 +133,108 @@ func (s *FinanceService) GetTransactions(userID uint, transactionType *string, f
 		responses[i] = transactions[i].ToResponse(categoryMap[transactions[i].CategoryID])
 	}
 	return responses, nil
+}
+
+func (s *FinanceService) GetFixedTransactions(userID uint, month, year *int, loc *time.Location) ([]*dto.FixedTransactionResponse, error) {
+	ctx := context.Background()
+
+	transactions, err := s.transactionRepo.FindFixedTransactions(ctx, userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch fixed transactions")
+	}
+
+	if len(transactions) == 0 {
+		return []*dto.FixedTransactionResponse{}, nil
+	}
+
+	transactionIDs := make([]primitive.ObjectID, len(transactions))
+	for i, t := range transactions {
+		transactionIDs[i] = t.ID
+	}
+
+	var paymentAggregations []repository.PaymentAggregationResult
+
+	if month != nil && year != nil {
+		startDate := time.Date(*year, time.Month(*month), 1, 0, 0, 0, 0, loc)
+		endDate := startDate.AddDate(0, 1, 0).Add(-time.Nanosecond)
+		paymentAggregations, err = s.paymentRepo.AggregateByDateRange(ctx, userID, startDate, endDate)
+	} else {
+		paymentAggregations, err = s.paymentRepo.AggregateByTransaction(ctx, transactionIDs, userID)
+	}
+
+	if err != nil {
+		return nil, errors.New("failed to fetch payment aggregations")
+	}
+
+	paymentTotals := make(map[primitive.ObjectID]float64)
+	for _, agg := range paymentAggregations {
+		paymentTotals[agg.TransactionID] = agg.Total
+	}
+
+	categoryMap := s.loadCategoryMap()
+
+	responses := make([]*dto.FixedTransactionResponse, len(transactions))
+	for i, t := range transactions {
+		totalPaid := paymentTotals[t.ID]
+
+		var currentPeriodPayment *dto.PaymentSummary
+		payment, err := s.paymentRepo.FindCurrentPeriodPayment(ctx, t.ID, userID, t.PaymentFrequency)
+		if err == nil && payment != nil {
+			summary := payment.ToSummary()
+			currentPeriodPayment = &summary
+		}
+
+		responses[i] = t.ToFixedResponse(categoryMap[t.CategoryID], totalPaid, nil, currentPeriodPayment)
+	}
+
+	return responses, nil
+}
+
+func (s *FinanceService) GetFixedTransactionWithPayments(userID uint, transactionID string) (*dto.FixedTransactionResponse, error) {
+	ctx := context.Background()
+
+	objID, err := primitive.ObjectIDFromHex(transactionID)
+	if err != nil {
+		return nil, errors.New("invalid transaction ID")
+	}
+
+	transaction, err := s.transactionRepo.FindByID(ctx, objID, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
+			return nil, errors.New("transaction not found")
+		}
+		return nil, errors.New("failed to fetch transaction")
+	}
+
+	if !transaction.IsFixed() {
+		return nil, errors.New("transaction is not a fixed transaction")
+	}
+
+	payments, err := s.paymentRepo.FindByTransactionID(ctx, objID, userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch payments")
+	}
+
+	var totalPaid float64
+	paymentSummaries := make([]dto.PaymentSummary, len(payments))
+	for i, p := range payments {
+		totalPaid += p.Amount
+		paymentSummaries[i] = p.ToSummary()
+	}
+
+	var currentPeriodPayment *dto.PaymentSummary
+	payment, err := s.paymentRepo.FindCurrentPeriodPayment(ctx, objID, userID, transaction.PaymentFrequency)
+	if err == nil && payment != nil {
+		summary := payment.ToSummary()
+		currentPeriodPayment = &summary
+	}
+
+	categoryName := ""
+	if category, err := s.categoryRepo.FindByID(transaction.CategoryID); err == nil {
+		categoryName = category.Name
+	}
+
+	return transaction.ToFixedResponse(categoryName, totalPaid, paymentSummaries, currentPeriodPayment), nil
 }
 
 func (s *FinanceService) loadCategoryMap() map[uint]string {
@@ -177,6 +290,9 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 	if req.Frequency != nil {
 		updates["frequency"] = *req.Frequency
 	}
+	if req.PaymentFrequency != nil {
+		updates["paymentFrequency"] = *req.PaymentFrequency
+	}
 	if req.Amount != nil {
 		updates["amount"] = *req.Amount
 	}
@@ -206,7 +322,13 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 		return errors.New("invalid transaction ID")
 	}
 
-	if err := s.transactionRepo.Delete(context.Background(), objID, userID); err != nil {
+	ctx := context.Background()
+
+	if err := s.paymentRepo.DeleteByTransactionID(ctx, objID, userID); err != nil {
+		return errors.New("failed to delete associated payments")
+	}
+
+	if err := s.transactionRepo.Delete(ctx, objID, userID); err != nil {
 		if errors.Is(err, repository.ErrTransactionNotFound) {
 			return errors.New("transaction not found")
 		}
@@ -217,13 +339,127 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 	return nil
 }
 
+// Payment Operations
+
+func (s *FinanceService) CreatePayment(userID uint, req *dto.CreatePaymentRequest) (*dto.PaymentResponse, error) {
+	ctx := context.Background()
+
+	transactionID, err := primitive.ObjectIDFromHex(req.TransactionID)
+	if err != nil {
+		return nil, errors.New("invalid transaction ID")
+	}
+
+	transaction, err := s.transactionRepo.FindByID(ctx, transactionID, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
+			return nil, errors.New("transaction not found")
+		}
+		return nil, errors.New("failed to verify transaction")
+	}
+
+	if !transaction.IsFixed() {
+		return nil, errors.New("payments can only be created for fixed transactions")
+	}
+
+	existingPayment, err := s.paymentRepo.FindCurrentPeriodPayment(ctx, transactionID, userID, transaction.PaymentFrequency)
+	if err != nil {
+		return nil, errors.New("failed to check existing payment")
+	}
+	if existingPayment != nil {
+		return nil, errors.New("payment already exists for this period")
+	}
+
+	paymentDate := time.Now()
+	if !req.Date.IsZero() {
+		paymentDate = req.Date
+	}
+
+	payment := model.Payment{
+		ID:            primitive.NewObjectID(),
+		TransactionID: transactionID,
+		UserID:        userID,
+		Amount:        req.Amount,
+		Date:          paymentDate,
+		CreatedAt:     time.Now(),
+	}
+
+	if err := s.paymentRepo.Create(ctx, &payment); err != nil {
+		return nil, errors.New("failed to create payment")
+	}
+
+	return payment.ToResponse(), nil
+}
+
+func (s *FinanceService) GetPayments(userID uint, transactionID *string, startDate, endDate *time.Time, limit int) ([]*dto.PaymentResponse, error) {
+	ctx := context.Background()
+
+	filter := repository.PaymentFilter{
+		UserID:    userID,
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	if transactionID != nil {
+		objID, err := primitive.ObjectIDFromHex(*transactionID)
+		if err != nil {
+			return nil, errors.New("invalid transaction ID")
+		}
+		filter.TransactionID = &objID
+	}
+
+	payments, err := s.paymentRepo.FindByFilter(ctx, filter, limit)
+	if err != nil {
+		return nil, errors.New("failed to fetch payments")
+	}
+
+	responses := make([]*dto.PaymentResponse, len(payments))
+	for i := range payments {
+		responses[i] = payments[i].ToResponse()
+	}
+
+	return responses, nil
+}
+
+func (s *FinanceService) DeletePayment(userID uint, paymentID string) error {
+	objID, err := primitive.ObjectIDFromHex(paymentID)
+	if err != nil {
+		return errors.New("invalid payment ID")
+	}
+
+	if err := s.paymentRepo.Delete(context.Background(), objID, userID); err != nil {
+		if errors.Is(err, repository.ErrPaymentNotFound) {
+			return errors.New("payment not found")
+		}
+		return errors.New("failed to delete payment")
+	}
+
+	return nil
+}
+
 func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.Time, loc *time.Location) (*dto.FinanceSummaryResponse, error) {
 	startInLoc := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
 	endInLoc := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, loc)
 
-	results, err := s.transactionRepo.Aggregate(context.Background(), userID, startInLoc, endInLoc)
+	ctx := context.Background()
+
+	variableResults, err := s.transactionRepo.Aggregate(ctx, userID, startInLoc, endInLoc)
 	if err != nil {
 		return nil, errors.New("failed to generate summary")
+	}
+
+	paymentResults, err := s.paymentRepo.AggregateByDateRange(ctx, userID, startInLoc, endInLoc)
+	if err != nil {
+		return nil, errors.New("failed to aggregate payments")
+	}
+
+	fixedTransactions, err := s.transactionRepo.FindFixedTransactions(ctx, userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch fixed transactions")
+	}
+
+	fixedTxMap := make(map[primitive.ObjectID]*model.Transaction)
+	for i := range fixedTransactions {
+		fixedTxMap[fixedTransactions[i].ID] = &fixedTransactions[i]
 	}
 
 	categoryMap := s.loadCategoryMap()
@@ -232,7 +468,7 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 	incomeByCategory := make(map[uint]*dto.CategorySummary)
 	outcomeByCategory := make(map[uint]*dto.CategorySummary)
 
-	for _, result := range results {
+	for _, result := range variableResults {
 		summary := &dto.CategorySummary{
 			CategoryID:   result.CategoryID,
 			CategoryName: categoryMap[result.CategoryID],
@@ -246,6 +482,41 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 		} else {
 			totalOutcome += result.Total
 			outcomeByCategory[result.CategoryID] = summary
+		}
+	}
+
+	for _, paymentAgg := range paymentResults {
+		tx, exists := fixedTxMap[paymentAgg.TransactionID]
+		if !exists {
+			continue
+		}
+
+		if tx.Type == model.TransactionTypeIncome {
+			totalIncome += paymentAgg.Total
+			if existing, ok := incomeByCategory[tx.CategoryID]; ok {
+				existing.Total += paymentAgg.Total
+				existing.Count += paymentAgg.Count
+			} else {
+				incomeByCategory[tx.CategoryID] = &dto.CategorySummary{
+					CategoryID:   tx.CategoryID,
+					CategoryName: categoryMap[tx.CategoryID],
+					Total:        paymentAgg.Total,
+					Count:        paymentAgg.Count,
+				}
+			}
+		} else {
+			totalOutcome += paymentAgg.Total
+			if existing, ok := outcomeByCategory[tx.CategoryID]; ok {
+				existing.Total += paymentAgg.Total
+				existing.Count += paymentAgg.Count
+			} else {
+				outcomeByCategory[tx.CategoryID] = &dto.CategorySummary{
+					CategoryID:   tx.CategoryID,
+					CategoryName: categoryMap[tx.CategoryID],
+					Total:        paymentAgg.Total,
+					Count:        paymentAgg.Count,
+				}
+			}
 		}
 	}
 

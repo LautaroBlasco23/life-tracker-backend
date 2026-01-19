@@ -13,35 +13,72 @@ type CategoryResponse struct {
 }
 
 type CreateTransactionRequest struct {
-	Date        time.Time `json:"date,omitempty"`
-	Type        string    `json:"type" binding:"required,oneof=income outcome"`
-	Frequency   string    `json:"frequency" binding:"required,oneof=fixed variable"`
-	Description string    `json:"description,omitempty" binding:"max=500"`
-	Amount      float64   `json:"amount" binding:"required,gt=0"`
-	CategoryID  uint      `json:"categoryId" binding:"required"`
+	Date             time.Time `json:"date,omitempty"`
+	Type             string    `json:"type" binding:"required,oneof=income outcome"`
+	Frequency        string    `json:"frequency" binding:"required,oneof=fixed variable"`
+	PaymentFrequency string    `json:"paymentFrequency,omitempty" binding:"omitempty,oneof=monthly bimonthly yearly"`
+	Description      string    `json:"description,omitempty" binding:"max=500"`
+	Amount           float64   `json:"amount" binding:"gte=0"`
+	CategoryID       uint      `json:"categoryId" binding:"required"`
 }
 
 type UpdateTransactionRequest struct {
-	Type        *string    `json:"type,omitempty" binding:"omitempty,oneof=income outcome"`
-	Frequency   *string    `json:"frequency,omitempty" binding:"omitempty,oneof=fixed variable"`
-	Amount      *float64   `json:"amount,omitempty" binding:"omitempty,gt=0"`
-	CategoryID  *uint      `json:"categoryId,omitempty"`
-	Description *string    `json:"description,omitempty" binding:"omitempty,max=500"`
-	Date        *time.Time `json:"date,omitempty"`
+	Type             *string    `json:"type,omitempty" binding:"omitempty,oneof=income outcome"`
+	Frequency        *string    `json:"frequency,omitempty" binding:"omitempty,oneof=fixed variable"`
+	PaymentFrequency *string    `json:"paymentFrequency,omitempty" binding:"omitempty,oneof=monthly bimonthly yearly"`
+	Amount           *float64   `json:"amount,omitempty" binding:"omitempty,gte=0"`
+	CategoryID       *uint      `json:"categoryId,omitempty"`
+	Description      *string    `json:"description,omitempty" binding:"omitempty,max=500"`
+	Date             *time.Time `json:"date,omitempty"`
 }
 
 type TransactionResponse struct {
-	Date         time.Time `json:"date"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
-	ID           string    `json:"id"`
-	Type         string    `json:"type"`
-	Frequency    string    `json:"frequency"`
-	CategoryName string    `json:"categoryName"`
-	Description  string    `json:"description,omitempty"`
-	UserID       uint      `json:"userId"`
-	Amount       float64   `json:"amount"`
-	CategoryID   uint      `json:"categoryId"`
+	Date             time.Time `json:"date"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+	ID               string    `json:"id"`
+	Type             string    `json:"type"`
+	Frequency        string    `json:"frequency"`
+	PaymentFrequency string    `json:"paymentFrequency,omitempty"`
+	CategoryName     string    `json:"categoryName"`
+	Description      string    `json:"description,omitempty"`
+	UserID           uint      `json:"userId"`
+	Amount           float64   `json:"amount"`
+	CategoryID       uint      `json:"categoryId"`
+}
+
+type FixedTransactionResponse struct {
+	CreatedAt            time.Time        `json:"createdAt"`
+	UpdatedAt            time.Time        `json:"updatedAt"`
+	ID                   string           `json:"id"`
+	Type                 string           `json:"type"`
+	PaymentFrequency     string           `json:"paymentFrequency"`
+	CategoryName         string           `json:"categoryName"`
+	Description          string           `json:"description,omitempty"`
+	TotalPaid            float64          `json:"totalPaid"`
+	Payments             []PaymentSummary `json:"payments,omitempty"`
+	CurrentPeriodPayment *PaymentSummary  `json:"currentPeriodPayment,omitempty"`
+	CategoryID           uint             `json:"categoryId"`
+}
+
+type PaymentSummary struct {
+	ID     string    `json:"id"`
+	Amount float64   `json:"amount"`
+	Date   time.Time `json:"date"`
+}
+
+type CreatePaymentRequest struct {
+	TransactionID string    `json:"transactionId" binding:"required"`
+	Amount        float64   `json:"amount" binding:"required,gt=0"`
+	Date          time.Time `json:"date,omitempty"`
+}
+
+type PaymentResponse struct {
+	ID            string    `json:"id"`
+	TransactionID string    `json:"transactionId"`
+	Amount        float64   `json:"amount"`
+	Date          time.Time `json:"date"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 type FinanceSummaryResponse struct {

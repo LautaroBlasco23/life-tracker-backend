@@ -23,6 +23,13 @@ func RegisterFinanceRoutes(router *gin.RouterGroup, db *gorm.DB, mongoDB *mongo.
 		financeGroup.PUT("/transactions/:id", financeController.UpdateTransaction)
 		financeGroup.DELETE("/transactions/:id", financeController.DeleteTransaction)
 
+		financeGroup.GET("/fixed-transactions", financeController.GetFixedTransactions)
+		financeGroup.GET("/fixed-transactions/:id", financeController.GetFixedTransactionWithPayments)
+
+		financeGroup.POST("/payments", financeController.CreatePayment)
+		financeGroup.GET("/payments", financeController.GetPayments)
+		financeGroup.DELETE("/payments/:id", financeController.DeletePayment)
+
 		financeGroup.GET("/summary", financeController.GetFinanceSummary)
 		financeGroup.GET("/monthly-stats", financeController.GetMonthlyStats)
 	}
