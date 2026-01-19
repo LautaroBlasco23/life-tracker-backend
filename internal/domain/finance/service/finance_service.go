@@ -339,8 +339,6 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 	return nil
 }
 
-// Payment Operations
-
 func (s *FinanceService) CreatePayment(userID uint, req *dto.CreatePaymentRequest) (*dto.PaymentResponse, error) {
 	ctx := context.Background()
 
@@ -439,7 +437,6 @@ func (s *FinanceService) DeletePayment(userID uint, paymentID string) error {
 func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.Time, loc *time.Location) (*dto.FinanceSummaryResponse, error) {
 	startInLoc := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
 	endInLoc := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, loc)
-
 	ctx := context.Background()
 
 	variableResults, err := s.transactionRepo.Aggregate(ctx, userID, startInLoc, endInLoc)
@@ -464,9 +461,37 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 
 	categoryMap := s.loadCategoryMap()
 
-	var totalIncome, totalOutcome float64
+	incomeByCategory, outcomeByCategory, totalIncome, totalOutcome := s.processSummaryData(
+		variableResults,
+		paymentResults,
+		fixedTxMap,
+		categoryMap,
+	)
+
+	incomeList := s.buildCategoryList(incomeByCategory, totalIncome)
+	outcomeList := s.buildCategoryList(outcomeByCategory, totalOutcome)
+
+	period := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+
+	return &dto.FinanceSummaryResponse{
+		TotalIncome:       totalIncome,
+		TotalOutcome:      totalOutcome,
+		Balance:           totalIncome - totalOutcome,
+		IncomeByCategory:  incomeList,
+		OutcomeByCategory: outcomeList,
+		Period:            period,
+	}, nil
+}
+
+func (s *FinanceService) processSummaryData(
+	variableResults []repository.AggregationResult,
+	paymentResults []repository.PaymentAggregationResult,
+	fixedTxMap map[primitive.ObjectID]*model.Transaction,
+	categoryMap map[uint]string,
+) (map[uint]*dto.CategorySummary, map[uint]*dto.CategorySummary, float64, float64) {
 	incomeByCategory := make(map[uint]*dto.CategorySummary)
 	outcomeByCategory := make(map[uint]*dto.CategorySummary)
+	var totalIncome, totalOutcome float64
 
 	for _, result := range variableResults {
 		summary := &dto.CategorySummary{
@@ -475,7 +500,6 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 			Total:        result.Total,
 			Count:        result.Count,
 		}
-
 		if result.Type == "income" {
 			totalIncome += result.Total
 			incomeByCategory[result.CategoryID] = summary
@@ -493,59 +517,45 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 
 		if tx.Type == model.TransactionTypeIncome {
 			totalIncome += paymentAgg.Total
-			if existing, ok := incomeByCategory[tx.CategoryID]; ok {
-				existing.Total += paymentAgg.Total
-				existing.Count += paymentAgg.Count
-			} else {
-				incomeByCategory[tx.CategoryID] = &dto.CategorySummary{
-					CategoryID:   tx.CategoryID,
-					CategoryName: categoryMap[tx.CategoryID],
-					Total:        paymentAgg.Total,
-					Count:        paymentAgg.Count,
-				}
-			}
+			s.addOrUpdateCategorySummary(incomeByCategory, tx.CategoryID, categoryMap, paymentAgg.Total, paymentAgg.Count)
 		} else {
 			totalOutcome += paymentAgg.Total
-			if existing, ok := outcomeByCategory[tx.CategoryID]; ok {
-				existing.Total += paymentAgg.Total
-				existing.Count += paymentAgg.Count
-			} else {
-				outcomeByCategory[tx.CategoryID] = &dto.CategorySummary{
-					CategoryID:   tx.CategoryID,
-					CategoryName: categoryMap[tx.CategoryID],
-					Total:        paymentAgg.Total,
-					Count:        paymentAgg.Count,
-				}
-			}
+			s.addOrUpdateCategorySummary(outcomeByCategory, tx.CategoryID, categoryMap, paymentAgg.Total, paymentAgg.Count)
 		}
 	}
 
-	incomeList := make([]dto.CategorySummary, 0, len(incomeByCategory))
-	for _, summary := range incomeByCategory {
-		if totalIncome > 0 {
-			summary.Percentage = (summary.Total / totalIncome) * 100
+	return incomeByCategory, outcomeByCategory, totalIncome, totalOutcome
+}
+
+func (s *FinanceService) addOrUpdateCategorySummary(
+	summaryMap map[uint]*dto.CategorySummary,
+	categoryID uint,
+	categoryMap map[uint]string,
+	total float64,
+	count int64,
+) {
+	if existing, ok := summaryMap[categoryID]; ok {
+		existing.Total += total
+		existing.Count += count
+	} else {
+		summaryMap[categoryID] = &dto.CategorySummary{
+			CategoryID:   categoryID,
+			CategoryName: categoryMap[categoryID],
+			Total:        total,
+			Count:        count,
 		}
-		incomeList = append(incomeList, *summary)
 	}
+}
 
-	outcomeList := make([]dto.CategorySummary, 0, len(outcomeByCategory))
-	for _, summary := range outcomeByCategory {
-		if totalOutcome > 0 {
-			summary.Percentage = (summary.Total / totalOutcome) * 100
+func (s *FinanceService) buildCategoryList(categoryMap map[uint]*dto.CategorySummary, total float64) []dto.CategorySummary {
+	list := make([]dto.CategorySummary, 0, len(categoryMap))
+	for _, summary := range categoryMap {
+		if total > 0 {
+			summary.Percentage = (summary.Total / total) * 100
 		}
-		outcomeList = append(outcomeList, *summary)
+		list = append(list, *summary)
 	}
-
-	period := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
-
-	return &dto.FinanceSummaryResponse{
-		TotalIncome:       totalIncome,
-		TotalOutcome:      totalOutcome,
-		Balance:           totalIncome - totalOutcome,
-		IncomeByCategory:  incomeList,
-		OutcomeByCategory: outcomeList,
-		Period:            period,
-	}, nil
+	return list
 }
 
 func (s *FinanceService) GetMonthlyStats(userID uint, year int, loc *time.Location) ([]*dto.MonthlyStatsResponse, error) {
