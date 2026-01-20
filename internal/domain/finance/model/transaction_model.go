@@ -9,31 +9,52 @@ import (
 )
 
 type Transaction struct {
-	Date          time.Time          `bson:"date" json:"date"`
-	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt     time.Time          `bson:"updatedAt" json:"updatedAt"`
-	Type          TransactionType    `bson:"type" json:"type"`
-	Description   string             `bson:"description,omitempty" json:"description,omitempty"`
-	UserID        uint               `bson:"userId" json:"userId"`
-	Amount        float64            `bson:"amount" json:"amount"`
-	CategoryID    uint               `bson:"categoryId" json:"categoryId"`
-	SubcategoryID uint               `bson:"subcategoryId" json:"subcategoryId"`
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ID               primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
+	UserID           uint                 `bson:"userId" json:"userId"`
+	Type             TransactionType      `bson:"type" json:"type"`
+	Frequency        TransactionFrequency `bson:"frequency" json:"frequency"`
+	PaymentFrequency PaymentFrequency     `bson:"paymentFrequency,omitempty" json:"paymentFrequency,omitempty"`
+	Amount           float64              `bson:"amount" json:"amount"`
+	CategoryID       uint                 `bson:"categoryId" json:"categoryId"`
+	Description      string               `bson:"description,omitempty" json:"description,omitempty"`
+	Date             time.Time            `bson:"date" json:"date"`
+	CreatedAt        time.Time            `bson:"createdAt" json:"createdAt"`
+	UpdatedAt        time.Time            `bson:"updatedAt" json:"updatedAt"`
 }
 
-func (t *Transaction) ToResponse(categoryName, subcategoryName string) *dto.TransactionResponse {
+func (t *Transaction) IsFixed() bool {
+	return t.Frequency == TransactionFrequencyFixed
+}
+
+func (t *Transaction) ToResponse(categoryName string) *dto.TransactionResponse {
 	return &dto.TransactionResponse{
-		ID:              t.ID.Hex(),
-		UserID:          t.UserID,
-		Type:            string(t.Type),
-		Amount:          t.Amount,
-		CategoryID:      t.CategoryID,
-		CategoryName:    categoryName,
-		SubcategoryID:   t.SubcategoryID,
-		SubcategoryName: subcategoryName,
-		Description:     t.Description,
-		Date:            t.Date,
-		CreatedAt:       t.CreatedAt,
-		UpdatedAt:       t.UpdatedAt,
+		ID:               t.ID.Hex(),
+		UserID:           t.UserID,
+		Type:             string(t.Type),
+		Frequency:        string(t.Frequency),
+		PaymentFrequency: string(t.PaymentFrequency),
+		Amount:           t.Amount,
+		CategoryID:       t.CategoryID,
+		CategoryName:     categoryName,
+		Description:      t.Description,
+		Date:             t.Date,
+		CreatedAt:        t.CreatedAt,
+		UpdatedAt:        t.UpdatedAt,
+	}
+}
+
+func (t *Transaction) ToFixedResponse(categoryName string, totalPaid float64, payments []dto.PaymentSummary, currentPeriodPayment *dto.PaymentSummary) *dto.FixedTransactionResponse {
+	return &dto.FixedTransactionResponse{
+		ID:                   t.ID.Hex(),
+		Type:                 string(t.Type),
+		PaymentFrequency:     string(t.PaymentFrequency),
+		CategoryID:           t.CategoryID,
+		CategoryName:         categoryName,
+		Description:          t.Description,
+		TotalPaid:            totalPaid,
+		Payments:             payments,
+		CurrentPeriodPayment: currentPeriodPayment,
+		CreatedAt:            t.CreatedAt,
+		UpdatedAt:            t.UpdatedAt,
 	}
 }

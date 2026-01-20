@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm/logger"
 
 	"life-tracker-backend/internal/config"
-
 	activityModel "life-tracker-backend/internal/domain/activity/model"
 	"life-tracker-backend/internal/domain/auth/model"
 	financeModel "life-tracker-backend/internal/domain/finance/model"
@@ -35,7 +34,6 @@ func InitializePostgreSQL(cfg *config.Config) (*gorm.DB, error) {
 		&model.Auth{},
 		&activityModel.Activity{},
 		&financeModel.Category{},
-		&financeModel.Subcategory{},
 		&timeModel.TimeRecord{},
 		&noteModel.Note{},
 	); err != nil {
@@ -54,40 +52,12 @@ func seedFinanceData(db *gorm.DB) error {
 	if err := db.Model(&financeModel.Category{}).Count(&count).Error; err != nil {
 		return err
 	}
-
 	if count > 0 {
 		return nil
 	}
 
 	if err := db.Create(&financeModel.SystemCategories).Error; err != nil {
 		return fmt.Errorf("failed to seed categories: %w", err)
-	}
-
-	var categories []financeModel.Category
-	if err := db.Find(&categories).Error; err != nil {
-		return err
-	}
-
-	categoryMap := make(map[string]uint)
-	for _, cat := range categories {
-		categoryMap[cat.Name] = cat.ID
-	}
-
-	for categoryName, subcatNames := range financeModel.SystemSubcategories {
-		categoryID, exists := categoryMap[categoryName]
-		if !exists {
-			continue
-		}
-
-		for _, subcatName := range subcatNames {
-			subcategory := financeModel.Subcategory{
-				CategoryID: categoryID,
-				Name:       subcatName,
-			}
-			if err := db.Create(&subcategory).Error; err != nil {
-				return fmt.Errorf("failed to seed subcategory %s: %w", subcatName, err)
-			}
-		}
 	}
 
 	return nil

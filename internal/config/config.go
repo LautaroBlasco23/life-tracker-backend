@@ -30,6 +30,8 @@ type Config struct {
 	JWTRefreshExpiry string
 
 	ImageStoreAddress string
+
+	CORSAllowedOrigins string
 }
 
 func Load() *Config {
@@ -68,6 +70,8 @@ func Load() *Config {
 		JWTRefreshExpiry: getEnv("JWT_REFRESH_EXPIRY", "168h"),
 
 		ImageStoreAddress: getEnv("IMAGESTORE_ADDRESS", "localhost:50051"),
+
+		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 	}
 }
 

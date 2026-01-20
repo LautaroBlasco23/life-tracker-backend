@@ -437,6 +437,7 @@ func (s *ActivityService) filterByScheduledDate(activities []model.Activity, tar
 	var filtered []model.Activity
 	weekday := strings.ToLower(targetDate.Weekday().String())
 	startOfTargetDate := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+	targetMonthKey := targetDate.Format("2006-01")
 
 	for i := range activities {
 		activity := &activities[i]
@@ -465,6 +466,12 @@ func (s *ActivityService) filterByScheduledDate(activities []model.Activity, tar
 			}
 
 		case model.FrequencyMonthly:
+			if completionDate, completed := metadata.MonthlyCompletions[activity.ID]; completed {
+				completionMonthKey := completionDate.Format("2006-01")
+				if completionMonthKey == targetMonthKey {
+					continue
+				}
+			}
 			filtered = append(filtered, *activity)
 
 		case model.FrequencyOneTime:

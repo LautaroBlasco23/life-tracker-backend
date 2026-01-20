@@ -41,6 +41,7 @@ func getTimezone(ctx *gin.Context) *time.Location {
 
 type transactionFilters struct {
 	transactionType *string
+	frequency       *string
 	startDate       *time.Time
 	endDate         *time.Time
 	month           *int
@@ -54,6 +55,9 @@ func parseTransactionFilters(ctx *gin.Context) transactionFilters {
 
 	if t := ctx.Query("type"); t != "" {
 		f.transactionType = &t
+	}
+	if freq := ctx.Query("frequency"); freq != "" {
+		f.frequency = &freq
 	}
 
 	f.month = parseIntInRange(ctx.Query("month"), 1, 12)
@@ -115,12 +119,15 @@ func parseDate(s string) *time.Time {
 }
 
 func (c *FinanceController) GetCategories(ctx *gin.Context) {
-	var transactionType *string
+	var transactionType, frequency *string
 	if t := ctx.Query("type"); t != "" {
 		transactionType = &t
 	}
+	if f := ctx.Query("frequency"); f != "" {
+		frequency = &f
+	}
 
-	categories, err := c.financeService.GetCategories(transactionType)
+	categories, err := c.financeService.GetCategories(transactionType, frequency)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -174,6 +181,7 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 	transactions, err := c.financeService.GetTransactions(
 		userID,
 		filters.transactionType,
+		filters.frequency,
 		filters.startDate,
 		filters.endDate,
 		filters.month,
@@ -191,6 +199,50 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 		"message": "Transactions retrieved successfully",
 		"data":    transactions,
 		"count":   len(transactions),
+	})
+}
+
+func (c *FinanceController) GetFixedTransactions(ctx *gin.Context) {
+	userID, err := getFinanceUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	loc := getTimezone(ctx)
+	month := parseIntInRange(ctx.Query("month"), 1, 12)
+	year := parseIntInRange(ctx.Query("year"), 2000, 2100)
+
+	transactions, err := c.financeService.GetFixedTransactions(userID, month, year, loc)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Fixed transactions retrieved successfully",
+		"data":    transactions,
+		"count":   len(transactions),
+	})
+}
+
+func (c *FinanceController) GetFixedTransactionWithPayments(ctx *gin.Context) {
+	userID, err := getFinanceUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	transactionID := ctx.Param("id")
+	transaction, err := c.financeService.GetFixedTransactionWithPayments(userID, transactionID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Fixed transaction retrieved successfully",
+		"data":    transaction,
 	})
 }
 
@@ -259,6 +311,87 @@ func (c *FinanceController) DeleteTransaction(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Transaction deleted successfully",
+	})
+}
+
+// Payment Endpoints
+
+func (c *FinanceController) CreatePayment(ctx *gin.Context) {
+	userID, err := getFinanceUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	var req dto.CreatePaymentRequest
+	if bindErr := ctx.ShouldBindJSON(&req); bindErr != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request",
+			"details": bindErr.Error(),
+		})
+		return
+	}
+
+	payment, err := c.financeService.CreatePayment(userID, &req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": "Payment created successfully",
+		"data":    payment,
+	})
+}
+
+func (c *FinanceController) GetPayments(ctx *gin.Context) {
+	userID, err := getFinanceUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	var transactionID *string
+	if tid := ctx.Query("transaction_id"); tid != "" {
+		transactionID = &tid
+	}
+
+	startDate := parseDate(ctx.Query("start_date"))
+	endDate := parseDate(ctx.Query("end_date"))
+
+	limit := 100
+	if l := parseIntPositive(ctx.Query("limit")); l != nil {
+		limit = *l
+	}
+
+	payments, err := c.financeService.GetPayments(userID, transactionID, startDate, endDate, limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Payments retrieved successfully",
+		"data":    payments,
+		"count":   len(payments),
+	})
+}
+
+func (c *FinanceController) DeletePayment(ctx *gin.Context) {
+	userID, err := getFinanceUserID(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	paymentID := ctx.Param("id")
+	if deleteErr := c.financeService.DeletePayment(userID, paymentID); deleteErr != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": deleteErr.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Payment deleted successfully",
 	})
 }
 
