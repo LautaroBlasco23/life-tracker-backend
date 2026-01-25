@@ -186,6 +186,8 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, email
 		}
 	}
 
+	monitoring.ProfileImageUploads.Inc()
+
 	user, err = s.repo.FindByID(userID)
 	if err != nil {
 		return nil, err
@@ -217,6 +219,8 @@ func (s *UserService) DeleteProfileImage(ctx context.Context, userID uint) error
 	if err := s.repo.Update(user, updates); err != nil {
 		return errors.New("failed to update user profile")
 	}
+
+	monitoring.ProfileImageDeletes.Inc()
 
 	return nil
 }

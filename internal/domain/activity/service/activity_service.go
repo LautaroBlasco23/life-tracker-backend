@@ -54,6 +54,9 @@ func (s *ActivityService) CreateActivity(userID uint, req *dto.CreateActivityReq
 	}
 
 	monitoring.ActivitiesCreated.WithLabelValues(string(activity.Frequency)).Inc()
+	monitoring.ActiveActivities.Inc()
+	monitoring.ActivitiesByFrequency.WithLabelValues(string(activity.Frequency)).Inc()
+	monitoring.ActivitiesByDayTime.WithLabelValues(string(activity.DayTime)).Inc()
 
 	return activity.ToResponse(), nil
 }
@@ -143,6 +146,10 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 		return nil, errors.New("activity not found")
 	}
 
+	oldFrequency := activity.Frequency
+	oldDayTime := activity.DayTime
+	oldIsActive := activity.IsActive
+
 	updates := s.buildUpdateMap(req)
 	if len(updates) == 0 {
 		return activity.ToResponse(), nil
@@ -155,6 +162,26 @@ func (s *ActivityService) UpdateActivity(userID, activityID uint, req *dto.Updat
 	updatedActivity, err := s.activityRepo.FindByID(activityID, userID)
 	if err != nil {
 		return nil, errors.New("failed to fetch updated activity")
+	}
+
+	monitoring.ActivitiesUpdated.Inc()
+
+	if req.Frequency != nil && model.Frequency(*req.Frequency) != oldFrequency {
+		monitoring.ActivitiesByFrequency.WithLabelValues(string(oldFrequency)).Dec()
+		monitoring.ActivitiesByFrequency.WithLabelValues(*req.Frequency).Inc()
+	}
+
+	if req.DayTime != nil && model.DayTime(*req.DayTime) != oldDayTime {
+		monitoring.ActivitiesByDayTime.WithLabelValues(string(oldDayTime)).Dec()
+		monitoring.ActivitiesByDayTime.WithLabelValues(*req.DayTime).Inc()
+	}
+
+	if req.IsActive != nil && *req.IsActive != oldIsActive {
+		if *req.IsActive {
+			monitoring.ActiveActivities.Inc()
+		} else {
+			monitoring.ActiveActivities.Dec()
+		}
 	}
 
 	return updatedActivity.ToResponse(), nil
@@ -194,6 +221,14 @@ func (s *ActivityService) buildUpdateMap(req *dto.UpdateActivityRequest) map[str
 }
 
 func (s *ActivityService) DeleteActivity(userID, activityID uint) error {
+	activity, err := s.activityRepo.FindByID(activityID, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrActivityNotFound) {
+			return errors.New("activity not found")
+		}
+		return errors.New("failed to fetch activity")
+	}
+
 	if err := s.activityRepo.Delete(activityID, userID); err != nil {
 		if errors.Is(err, repository.ErrActivityNotFound) {
 			return errors.New("activity not found")
@@ -202,6 +237,12 @@ func (s *ActivityService) DeleteActivity(userID, activityID uint) error {
 	}
 
 	monitoring.ActivitiesDeleted.Inc()
+	monitoring.ActivitiesByFrequency.WithLabelValues(string(activity.Frequency)).Dec()
+	monitoring.ActivitiesByDayTime.WithLabelValues(string(activity.DayTime)).Dec()
+	if activity.IsActive {
+		monitoring.ActiveActivities.Dec()
+	}
+
 	return nil
 }
 
@@ -312,6 +353,8 @@ func (s *ActivityService) RevertLastCompletion(userID, activityID uint, targetDa
 		}
 		return errors.New("failed to revert completion")
 	}
+
+	monitoring.ActivityCompletionReverts.Inc()
 
 	return nil
 }
@@ -523,9 +566,9 @@ func (s *ActivityService) calculateDailyStreak(records []model.ActivityRecord, r
 
 		if count < requiredAmount {
 			if i == 0 {
-				continue // today not completed yet, check yesterday
+				continue
 			}
-			break // streak broken
+			break
 		}
 		current++
 	}

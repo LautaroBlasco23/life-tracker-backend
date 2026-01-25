@@ -106,6 +106,10 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		category.Name,
 	).Observe(transaction.Amount)
 
+	if transaction.IsFixed() {
+		monitoring.FixedTransactionsTotal.WithLabelValues(string(transaction.Type)).Inc()
+	}
+
 	return transaction.ToResponse(category.Name), nil
 }
 
@@ -313,6 +317,8 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 		return nil, errors.New("failed to update transaction")
 	}
 
+	monitoring.TransactionsUpdated.Inc()
+
 	return s.GetTransaction(userID, transactionID)
 }
 
@@ -323,6 +329,14 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 	}
 
 	ctx := context.Background()
+
+	transaction, err := s.transactionRepo.FindByID(ctx, objID, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrTransactionNotFound) {
+			return errors.New("transaction not found")
+		}
+		return errors.New("failed to fetch transaction")
+	}
 
 	if err := s.paymentRepo.DeleteByTransactionID(ctx, objID, userID); err != nil {
 		return errors.New("failed to delete associated payments")
@@ -336,6 +350,11 @@ func (s *FinanceService) DeleteTransaction(userID uint, transactionID string) er
 	}
 
 	monitoring.TransactionsDeleted.Inc()
+
+	if transaction.IsFixed() {
+		monitoring.FixedTransactionsTotal.WithLabelValues(string(transaction.Type)).Dec()
+	}
+
 	return nil
 }
 
@@ -385,6 +404,15 @@ func (s *FinanceService) CreatePayment(userID uint, req *dto.CreatePaymentReques
 		return nil, errors.New("failed to create payment")
 	}
 
+	monitoring.PaymentsCreated.WithLabelValues(string(transaction.Type)).Inc()
+	monitoring.PaymentAmount.WithLabelValues(string(transaction.Type)).Observe(payment.Amount)
+
+	if transaction.Type == model.TransactionTypeIncome {
+		monitoring.TotalIncomeAmount.Add(payment.Amount)
+	} else {
+		monitoring.TotalOutcomeAmount.Add(payment.Amount)
+	}
+
 	return payment.ToResponse(), nil
 }
 
@@ -430,6 +458,8 @@ func (s *FinanceService) DeletePayment(userID uint, paymentID string) error {
 		}
 		return errors.New("failed to delete payment")
 	}
+
+	monitoring.PaymentsDeleted.Inc()
 
 	return nil
 }
