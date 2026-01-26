@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
@@ -45,18 +46,21 @@ func Load() *Config {
 		file = ".env.test"
 	}
 
-	if err := godotenv.Load(file); err != nil {
+	envPath := findEnvFile(file)
+	if envPath != "" {
+		if err := godotenv.Load(envPath); err != nil {
+			log.Printf("Error loading %s: %v\n", envPath, err)
+		}
+	} else {
 		log.Printf("No %s file found, using system environment variables\n", file)
 	}
 
-	// MongoDB
 	mongoURI := os.Getenv("MONGO_URI")
 	if mongoURI == "" {
 		mongoHost := getEnv("MONGO_HOST", "localhost")
 		mongoPort := getEnv("MONGO_PORT", "27017")
 		mongoUser := getEnv("MONGO_USER", "admin")
 		mongoPass := getEnv("MONGO_PASSWORD", "password")
-
 		mongoURI = fmt.Sprintf(
 			"mongodb://%s:%s@%s:%s",
 			mongoUser, mongoPass, mongoHost, mongoPort,
@@ -88,6 +92,28 @@ func Load() *Config {
 
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 	}
+}
+
+func findEnvFile(filename string) string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	for {
+		path := filepath.Join(dir, filename)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+
+	return ""
 }
 
 func getEnv(key, defaultValue string) string {
