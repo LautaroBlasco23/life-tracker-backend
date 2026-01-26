@@ -24,6 +24,9 @@ go.work
 .env.test
 .env.production
 
+# Allow committing test env
+!.env.test
+
 # IDE and editor files
 .vscode/
 .idea/
