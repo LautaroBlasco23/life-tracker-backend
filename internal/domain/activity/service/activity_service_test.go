@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/model"
 	"life-tracker-backend/internal/domain/activity/repository"
@@ -28,9 +30,12 @@ var (
 	testMongoDB *mongo.Database
 	mongoClient *mongo.Client
 	testLoc     *time.Location
+	cfg         *config.Config
 )
 
 func TestMain(m *testing.M) {
+	os.Setenv("ENVIRONMENT", "test")
+	cfg = config.Load()
 	testLoc = time.UTC
 
 	code := m.Run()
@@ -44,8 +49,10 @@ func TestMain(m *testing.M) {
 
 func setupTestDatabases(t *testing.T) {
 	if testDB == nil {
-		dsn := os.Getenv("TEST_POSTGRES_DSN")
-		require.NotEmpty(t, dsn, "TEST_POSTGRES_DSN must be set. Run tests with 'make test'")
+		dsn := fmt.Sprintf(
+			"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
+		)
 
 		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
@@ -61,28 +68,19 @@ func setupTestDatabases(t *testing.T) {
 	}
 
 	if testMongoDB == nil {
-		uri := os.Getenv("TEST_MONGO_URI")
-		if uri == "" {
-			uri = "mongodb://localhost:27017"
-		}
-
 		ctx := context.Background()
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI(cfg.MongoURI))
 		require.NoError(t, err)
+		require.NoError(t, client.Ping(ctx, nil), "MongoDB not available")
 
-		require.NoError(t, client.Ping(ctx, nil), "MongoDB not available. Run 'make test-db-up' first")
-
-		dbName := "test_life_tracker_service"
-		testMongoDB = client.Database(dbName)
+		testMongoDB = client.Database(cfg.MongoDatabase)
 		mongoClient = client
 	}
 }
 
 func cleanDatabase(t *testing.T) {
 	t.Helper()
-	if err := testDB.Exec("TRUNCATE TABLE activities RESTART IDENTITY CASCADE;").Error; err != nil {
-		t.Fatalf("failed to clean database: %v", err)
-	}
+	require.NoError(t, testDB.Exec("TRUNCATE TABLE activities RESTART IDENTITY CASCADE;").Error)
 
 	collections, _ := testMongoDB.ListCollectionNames(context.Background(), bson.M{})
 	for _, coll := range collections {
