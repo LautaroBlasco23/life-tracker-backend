@@ -35,18 +35,33 @@ type Config struct {
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "dev"
 	}
 
-	// Build MongoDB URI from individual components
-	mongoHost := getEnv("MONGO_HOST", "localhost")
-	mongoPort := getEnv("MONGO_PORT", "27017")
-	mongoUser := getEnv("MONGO_USER", "admin")
-	mongoPass := getEnv("MONGO_PASSWORD", "password")
+	file := ".env"
+	if env == "test" {
+		file = ".env.test"
+	}
 
-	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%s",
-		mongoUser, mongoPass, mongoHost, mongoPort)
+	if err := godotenv.Load(file); err != nil {
+		log.Printf("No %s file found, using system environment variables\n", file)
+	}
+
+	// MongoDB
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		mongoHost := getEnv("MONGO_HOST", "localhost")
+		mongoPort := getEnv("MONGO_PORT", "27017")
+		mongoUser := getEnv("MONGO_USER", "admin")
+		mongoPass := getEnv("MONGO_PASSWORD", "password")
+
+		mongoURI = fmt.Sprintf(
+			"mongodb://%s:%s@%s:%s",
+			mongoUser, mongoPass, mongoHost, mongoPort,
+		)
+	}
 
 	return &Config{
 		Port:    getEnv("PORT", "8080"),
