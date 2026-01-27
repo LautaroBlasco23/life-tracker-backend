@@ -5,10 +5,15 @@ Golang application for life tracking with JWT authentication, user management, a
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-script to set up hooks in dev's machine.
+## Git Hooks Setup
+
+This project uses versioned git hooks.
+
+Run once after cloning:
 
 ```bash
 git config core.hooksPath .githooks
+chmod +x .githooks/*
 ```
 
 ## Features
@@ -36,6 +41,7 @@ git config core.hooksPath .githooks
 ## Project Structure
 
 ```
+
 project/
 ├── cmd/main/              # Application entry point
 ├── internal/
@@ -47,6 +53,7 @@ project/
 │   └── database/          # Database setup
 ├── .env
 └── go.mod
+
 ```
 
 ## Quick Start
