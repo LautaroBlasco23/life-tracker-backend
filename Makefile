@@ -1,4 +1,4 @@
-.PHONY: help install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only load-test load-test-debug smoke-test
+.PHONY: help install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only
 .DEFAULT_GOAL := help
 
 help:
@@ -39,9 +39,6 @@ dev: db-up
 	@until docker exec golang_api_postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
 	ENV_FILE=.env air -c .air.toml
 
-dev-app:
-	ENV_FILE=.env air -c .air.toml
-
 docker-up:
 	@[ -f .env ] || (echo ".env not found"; exit 1)
 	docker compose --env-file .env up -d
@@ -79,18 +76,3 @@ test: db-test-up
 
 test-only:
 	ENVIRONMENT=test gotestsum --format=short-verbose -- -race -p 1 ./...
-
-load-test:
-	@command -v k6 >/dev/null 2>&1 || { echo "❌ k6 not installed. Install: https://k6.io/docs/get-started/installation/"; exit 1; }
-	@echo "🚀 Running load tests..."
-	k6 run tests/load-test.js
-
-load-test-debug:
-	@command -v k6 >/dev/null 2>&1 || { echo "❌ k6 not installed."; exit 1; }
-	@echo "🔍 Running load tests with debug output..."
-	k6 run --env DEBUG=true tests/load-test.js
-
-smoke-test:
-	@command -v k6 >/dev/null 2>&1 || { echo "❌ k6 not installed."; exit 1; }
-	@echo "💨 Running smoke test..."
-	k6 run --vus 1 --duration 30s tests/load-test.js
