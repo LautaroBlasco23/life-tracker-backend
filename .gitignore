@@ -83,3 +83,10 @@ dev/
 # Backup files
 *.bak
 *.backup
+
+
+# k6 results
+results.json
+summary.json
+k6-report.html
+*.har
