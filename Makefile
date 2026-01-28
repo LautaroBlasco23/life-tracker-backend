@@ -1,4 +1,4 @@
-.PHONY: help install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only
+.PHONY: help install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only load-test load-test-debug smoke-test
 .DEFAULT_GOAL := help
 
 help:
@@ -79,3 +79,18 @@ test: db-test-up
 
 test-only:
 	ENVIRONMENT=test gotestsum --format=short-verbose -- -race -p 1 ./...
+
+load-test:
+	@command -v k6 >/dev/null 2>&1 || { echo "❌ k6 not installed. Install: https://k6.io/docs/get-started/installation/"; exit 1; }
+	@echo "🚀 Running load tests..."
+	k6 run tests/load-test.js
+
+load-test-debug:
+	@command -v k6 >/dev/null 2>&1 || { echo "❌ k6 not installed."; exit 1; }
+	@echo "🔍 Running load tests with debug output..."
+	k6 run --env DEBUG=true tests/load-test.js
+
+smoke-test:
+	@command -v k6 >/dev/null 2>&1 || { echo "❌ k6 not installed."; exit 1; }
+	@echo "💨 Running smoke test..."
+	k6 run --vus 1 --duration 30s tests/load-test.js
