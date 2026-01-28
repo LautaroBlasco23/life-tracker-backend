@@ -36,7 +36,7 @@ type Config struct {
 }
 
 func Load() *Config {
-	env := os.Getenv("ENVIRONMENT")
+	env := getEnv("ENVIRONMENT", "")
 	if env == "" {
 		env = "dev"
 	}
@@ -55,7 +55,7 @@ func Load() *Config {
 		log.Printf("No %s file found, using system environment variables\n", file)
 	}
 
-	mongoURI := os.Getenv("MONGO_URI")
+	mongoURI := getEnv("MONGO_URI", "")
 	if mongoURI == "" {
 		mongoHost := getEnv("MONGO_HOST", "localhost")
 		mongoPort := getEnv("MONGO_PORT", "27017")
@@ -65,6 +65,11 @@ func Load() *Config {
 			"mongodb://%s:%s@%s:%s",
 			mongoUser, mongoPass, mongoHost, mongoPort,
 		)
+	}
+
+	jwtSecret := getEnv("JWT_SECRET", "default-secret-change-this")
+	if env == "prod" && jwtSecret == "default-secret-change-this" {
+		log.Fatal("JWT_SECRET must be set to a secure value in production")
 	}
 
 	return &Config{
@@ -84,7 +89,7 @@ func Load() *Config {
 		MongoDatabase: getEnv("MONGO_DATABASE", "life_tracker"),
 
 		// JWT
-		JWTSecret:        getEnv("JWT_SECRET", "default-secret-change-this"),
+		JWTSecret:        jwtSecret,
 		JWTExpiry:        getEnv("JWT_EXPIRY", "24h"),
 		JWTRefreshExpiry: getEnv("JWT_REFRESH_EXPIRY", "168h"),
 
