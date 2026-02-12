@@ -5,6 +5,17 @@ Golang application for life tracking with JWT authentication, user management, a
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
+## Git Hooks Setup
+
+This project uses versioned git hooks.
+
+Run once after cloning:
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/*
+```
+
 ## Features
 
 - **Authentication**: JWT tokens with refresh mechanism
@@ -30,6 +41,7 @@ Golang application for life tracking with JWT authentication, user management, a
 ## Project Structure
 
 ```
+
 project/
 ├── cmd/main/              # Application entry point
 ├── internal/
@@ -41,6 +53,7 @@ project/
 │   └── database/          # Database setup
 ├── .env
 └── go.mod
+
 ```
 
 ## Quick Start
@@ -62,7 +75,7 @@ cd golang-rest-api
 go mod download
 ```
 
-2. **Setup environment variables**
+1. **Setup environment variables**
 
 Create a `.env` file:
 
@@ -84,13 +97,13 @@ REFRESH_TOKEN_EXPIRY=7d
 SERVER_PORT=8080
 ```
 
-3. **Create databases**
+1. **Create databases**
 
 ```bash
 createdb your_database
 ```
 
-4. **Run the application**
+1. **Run the application**
 
 ```bash
 go run cmd/main/main.go
@@ -188,6 +201,7 @@ curl -X POST http://localhost:8080/api/v1/activities \
 ### PostgreSQL
 
 **Users**
+
 ```
 id              UUID (PK)
 first_name      VARCHAR (required)
@@ -200,6 +214,7 @@ deleted_at      TIMESTAMP (soft delete)
 ```
 
 **Auth**
+
 ```
 id            UUID (PK)
 email         VARCHAR (unique, required)
@@ -211,6 +226,7 @@ deleted_at    TIMESTAMP (soft delete)
 ```
 
 **Activities**
+
 ```
 id          UUID (PK)
 user_id     UUID (FK -> users.id)
@@ -226,6 +242,7 @@ deleted_at  TIMESTAMP (soft delete)
 ### MongoDB
 
 **Activity Records**
+
 ```
 {
   activity_id: UUID,

@@ -35,7 +35,7 @@ code-check:
 	gofumpt -l -w .
 	golangci-lint run --fix ./...
 
-dev: db-up
+dev: hooks db-up
 	@until docker exec golang_api_postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
 	ENV_FILE=.env air -c .air.toml
 
@@ -76,3 +76,7 @@ test: db-test-up
 
 test-only:
 	ENVIRONMENT=test gotestsum --format=short-verbose -- -race -p 1 ./...
+
+hooks:
+	git config core.hooksPath .githooks
+	chmod +x .githooks/*
