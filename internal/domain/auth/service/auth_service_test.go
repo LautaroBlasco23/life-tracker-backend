@@ -182,6 +182,8 @@ func TestAuthService_RefreshToken(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("successful token refresh", func(t *testing.T) {
+		time.Sleep(time.Second)
+
 		newTokens, err := service.RefreshToken(tokens.RefreshToken)
 
 		assert.NoError(t, err)
@@ -190,7 +192,6 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		assert.NotEmpty(t, newTokens.RefreshToken)
 		assert.NotEqual(t, tokens.AccessToken, newTokens.AccessToken)
 	})
-
 	t.Run("invalid token", func(t *testing.T) {
 		newTokens, err := service.RefreshToken("invalid-token")
 
