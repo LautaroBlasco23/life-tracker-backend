@@ -280,6 +280,8 @@ func TestUserService_GetAllUsers(t *testing.T) {
 	})
 
 	t.Run("no users returns empty list", func(t *testing.T) {
+		cleanDatabase(t)
+
 		users, err := service.GetAllUsers()
 
 		assert.NoError(t, err)
