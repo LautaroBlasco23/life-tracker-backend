@@ -45,7 +45,7 @@ func setupTestRouter(t *testing.T) (*gin.Engine, *service.AuthService, func()) {
 	require.NoError(t, db.AutoMigrate(&model.Auth{}, &userModel.User{}))
 
 	authService := service.NewAuthService(db, cfg)
-	userSvc := userService.NewUserService(db)
+	userSvc := userService.NewUserService(db, nil)
 	controller := NewAuthController(authService, userSvc)
 
 	router := gin.New()
