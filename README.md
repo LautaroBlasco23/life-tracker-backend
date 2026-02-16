@@ -151,14 +151,42 @@ Infrastructure and dashboards are defined in the **infra repository**.
 
 ## Development
 
+### Prerequisites
+Install required development tools:
 ```bash
-go install github.com/cosmtrek/air@latest
-air
+make install-tools
 ```
 
+### Running the Application
+Start the application with development databases:
 ```bash
-go test ./...
+make dev
 ```
+
+This will:
+- Start PostgreSQL and Redis containers
+- Wait for database readiness
+- Launch the application with hot-reload via Air
+
+### Testing
+Run tests with isolated test database:
+```bash
+make test
+```
+
+Or run tests without managing the database:
+```bash
+make test-only
+```
+
+### Code Quality
+Format and lint code:
+```bash
+make code-check
+```
+
+### Available Commands
+Run `make help` to see all available commands for development, Docker, and database management.
 
 ---
 
