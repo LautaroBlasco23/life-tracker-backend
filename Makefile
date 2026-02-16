@@ -72,7 +72,10 @@ db-test-remove:
 	docker compose -f docker-compose.db.yml --env-file .env.test down -v
 
 test: db-test-up
-	ENVIRONMENT=test gotestsum --format=short-verbose -- -race -p 1 ./...
+	@ENVIRONMENT=test gotestsum --format=short-verbose -- -race -p 1 ./...; \
+	TEST_EXIT=$$?; \
+	$(MAKE) db-test-down; \
+	exit $$TEST_EXIT
 
 test-only:
 	ENVIRONMENT=test gotestsum --format=short-verbose -- -race -p 1 ./...
