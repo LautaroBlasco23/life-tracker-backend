@@ -104,27 +104,50 @@ backend/
 ## Quick Start
 
 ### Prerequisites
-
 - Go 1.21+
-- PostgreSQL
-- MongoDB
-- Docker (optional)
+- Docker & Docker Compose
+- Make
 
-### Installation
-
+### Fastest Path (One Command)
 ```bash
 git clone <your-repo-url>
 cd backend
-go mod download
+make start
 ```
 
-Create `.env` from `.env.example`.
+Server runs at `http://localhost:8080`
 
+> **Note:** This creates `.env` from `.env.example` and starts databases + app with hot reload.
+
+### Standard Setup (More Control)
 ```bash
-go run cmd/main/main.go
+# 1. Clone and install dependencies
+git clone <your-repo-url>
+cd backend
+go mod download
+
+# 2. Setup environment and start
+make start
 ```
 
-Server runs at `http://localhost:8080`.
+### Manual Control
+```bash
+# Create environment file
+make setup
+
+# Start only databases
+make db-up
+
+# Run application directly
+go run cmd/main/main.go
+
+# Or with hot reload
+make dev
+```
+
+### Available Commands
+
+Run `make help` to see all available commands for development, testing, and database management.
 
 ---
 

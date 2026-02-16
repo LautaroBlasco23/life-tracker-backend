@@ -1,7 +1,12 @@
-.PHONY: help install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only
+.PHONY: help setup start install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only hooks
+
 .DEFAULT_GOAL := help
 
 help:
+	@echo ""
+	@echo "  🚀 Quick Start:"
+	@echo "    setup              - Create .env from .env.example"
+	@echo "    start              - Setup environment and start application (setup + dev)"
 	@echo ""
 	@echo "  🛠️  Development:"
 	@echo "    install-tools      - Install Go tools (gofumpt, golangci-lint, air, gotestsum)"
@@ -24,6 +29,17 @@ help:
 	@echo "    db-test-up         - Start test databases"
 	@echo "    db-test-down       - Stop test databases"
 	@echo "    db-test-remove     - Remove test databases and volumes"
+
+setup:
+	@if [ ! -f .env ]; then \
+		echo "Creating .env from .env.example..."; \
+		cp .env.example .env; \
+		echo "✓ .env created. Review and update configuration if needed."; \
+	else \
+		echo "✓ .env already exists"; \
+	fi
+
+start: setup dev
 
 install-tools:
 	go install mvdan.cc/gofumpt@latest
