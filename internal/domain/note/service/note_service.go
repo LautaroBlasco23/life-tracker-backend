@@ -6,6 +6,7 @@ import (
 	"life-tracker-backend/internal/domain/note/dto"
 	"life-tracker-backend/internal/domain/note/model"
 	"life-tracker-backend/internal/domain/note/repository"
+	"life-tracker-backend/internal/infrastructure/monitoring"
 
 	"gorm.io/gorm"
 )
@@ -33,6 +34,10 @@ func (s *NoteService) CreateNote(userID uint, req *dto.CreateNoteRequest) (*dto.
 		return nil, err
 	}
 
+	monitoring.NotesCreated.Inc()
+	monitoring.ActiveNotes.Inc()
+	monitoring.NoteContentLength.Observe(float64(len(note.Content)))
+
 	return note.ToResponse(), nil
 }
 
@@ -44,7 +49,6 @@ func (s *NoteService) GetNote(id, userID uint) (*dto.NoteResponse, error) {
 		}
 		return nil, err
 	}
-
 	return note.ToResponse(), nil
 }
 
@@ -58,7 +62,6 @@ func (s *NoteService) GetNotes(userID uint, filter *dto.NoteFilter) ([]*dto.Note
 	for i, note := range notes {
 		responses[i] = note.ToResponse()
 	}
-
 	return responses, nil
 }
 
@@ -82,6 +85,9 @@ func (s *NoteService) UpdateNote(id, userID uint, req *dto.UpdateNoteRequest) (*
 		return nil, err
 	}
 
+	monitoring.NotesUpdated.Inc()
+	monitoring.NoteContentLength.Observe(float64(len(note.Content)))
+
 	return note.ToResponse(), nil
 }
 
@@ -94,5 +100,12 @@ func (s *NoteService) DeleteNote(id, userID uint) error {
 		return err
 	}
 
-	return s.repo.Delete(note.ID, userID)
+	if err := s.repo.Delete(note.ID, userID); err != nil {
+		return err
+	}
+
+	monitoring.NotesDeleted.Inc()
+	monitoring.ActiveNotes.Dec()
+
+	return nil
 }

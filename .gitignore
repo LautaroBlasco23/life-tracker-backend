@@ -24,6 +24,9 @@ go.work
 .env.test
 .env.production
 
+# Allow committing test env
+!.env.test
+
 # IDE and editor files
 .vscode/
 .idea/
@@ -80,3 +83,10 @@ dev/
 # Backup files
 *.bak
 *.backup
+
+
+# k6 results
+results.json
+summary.json
+k6-report.html
+*.har

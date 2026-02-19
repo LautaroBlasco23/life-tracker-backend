@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/activity/dto"
 	"life-tracker-backend/internal/domain/activity/model"
 	"life-tracker-backend/internal/domain/activity/service"
@@ -25,24 +26,27 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupTestRouter(t *testing.T) (*gin.Engine, *service.ActivityService, func()) {
-	gin.SetMode(gin.TestMode)
+var cfg *config.Config
 
-	dsn := os.Getenv("TEST_POSTGRES_DSN")
-	require.NotEmpty(t, dsn, "TEST_POSTGRES_DSN environment variable must be set. Run tests with 'make test'")
+func init() {
+	os.Setenv("ENVIRONMENT", "test")
+	cfg = config.Load()
+	gin.SetMode(gin.TestMode)
+}
+
+func setupTestRouter(t *testing.T) (*gin.Engine, *service.ActivityService, func()) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
+	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	require.NoError(t, err, "Failed to connect to PostgreSQL. Is the container running?")
+	require.NoError(t, err, "Failed to connect to PostgreSQL")
 
 	db.Exec("DROP TABLE IF EXISTS activities CASCADE")
 	require.NoError(t, db.AutoMigrate(&model.Activity{}))
 
-	uri := os.Getenv("TEST_MONGO_URI")
-	if uri == "" {
-		uri = "mongodb://localhost:27017"
-	}
-
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.MongoURI))
 	require.NoError(t, err)
 	require.NoError(t, client.Ping(context.Background(), nil), "MongoDB not available")
 
@@ -527,7 +531,6 @@ func TestRevertLastCompletionHandler(t *testing.T) {
 }
 
 func TestUnauthorizedAccess(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
 	controller := NewActivityController(nil)

@@ -45,7 +45,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 		return nil, 0, fmt.Errorf("failed to check email: %w", err)
 	}
 	if exists {
-		monitoring.AuthAttempts.WithLabelValues("failed_duplicate").Inc()
+		monitoring.AuthAttempts.WithLabelValues("failure").Inc()
 		return nil, 0, errors.New("user already exists")
 	}
 
@@ -75,6 +75,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 
 	monitoring.UserRegistrations.Inc()
 	monitoring.ActiveUsers.Inc()
+	monitoring.AuthAttempts.WithLabelValues("success").Inc()
 
 	tokens, err := s.generateTokens(user.ID, req.Email)
 	if err != nil {
@@ -88,14 +89,14 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, er
 	auth, err := s.authRepo.FindByEmail(req.Email)
 	if err != nil {
 		if errors.Is(err, repository.ErrAuthNotFound) {
-			monitoring.AuthAttempts.WithLabelValues("failed_not_found").Inc()
+			monitoring.AuthAttempts.WithLabelValues("failure").Inc()
 			return nil, 0, errors.New("invalid credentials")
 		}
 		return nil, 0, err
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password)); err != nil {
-		monitoring.AuthAttempts.WithLabelValues("failed_password").Inc()
+		monitoring.AuthAttempts.WithLabelValues("failure").Inc()
 		return nil, 0, errors.New("invalid credentials")
 	}
 
@@ -118,6 +119,8 @@ func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, err
 	if claims.Type != "refresh" {
 		return nil, errors.New("invalid token type")
 	}
+
+	monitoring.TokenRefreshes.Inc()
 
 	return s.generateTokens(claims.UserID, claims.Email)
 }
@@ -206,7 +209,13 @@ func (s *AuthService) UpdatePassword(userID uint, req *dto.UpdatePasswordRequest
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	return s.authRepo.UpdatePassword(userID, string(hashedPassword))
+	if err := s.authRepo.UpdatePassword(userID, string(hashedPassword)); err != nil {
+		return err
+	}
+
+	monitoring.PasswordChanges.Inc()
+
+	return nil
 }
 
 func (s *AuthService) UpdateEmail(userID uint, req *dto.UpdateEmailRequest) (*dto.TokenResponse, error) {
@@ -234,6 +243,8 @@ func (s *AuthService) UpdateEmail(userID uint, req *dto.UpdateEmailRequest) (*dt
 	if err = s.authRepo.UpdateEmail(userID, req.NewEmail); err != nil {
 		return nil, fmt.Errorf("failed to update email: %w", err)
 	}
+
+	monitoring.EmailChanges.Inc()
 
 	return s.generateTokens(userID, req.NewEmail)
 }

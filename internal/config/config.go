@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
@@ -35,18 +36,41 @@ type Config struct {
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+	env := getEnv("ENVIRONMENT", "")
+	if env == "" {
+		env = "dev"
 	}
 
-	// Build MongoDB URI from individual components
-	mongoHost := getEnv("MONGO_HOST", "localhost")
-	mongoPort := getEnv("MONGO_PORT", "27017")
-	mongoUser := getEnv("MONGO_USER", "admin")
-	mongoPass := getEnv("MONGO_PASSWORD", "password")
+	file := ".env"
+	if env == "test" {
+		file = ".env.test"
+	}
 
-	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%s",
-		mongoUser, mongoPass, mongoHost, mongoPort)
+	envPath := findEnvFile(file)
+	if envPath != "" {
+		if err := godotenv.Load(envPath); err != nil {
+			log.Printf("Error loading %s: %v\n", envPath, err)
+		}
+	} else {
+		log.Printf("No %s file found, using system environment variables\n", file)
+	}
+
+	mongoURI := getEnv("MONGO_URI", "")
+	if mongoURI == "" {
+		mongoHost := getEnv("MONGO_HOST", "localhost")
+		mongoPort := getEnv("MONGO_PORT", "27017")
+		mongoUser := getEnv("MONGO_USER", "admin")
+		mongoPass := getEnv("MONGO_PASSWORD", "password")
+		mongoURI = fmt.Sprintf(
+			"mongodb://%s:%s@%s:%s",
+			mongoUser, mongoPass, mongoHost, mongoPort,
+		)
+	}
+
+	jwtSecret := getEnv("JWT_SECRET", "default-secret-change-this")
+	if env == "prod" && jwtSecret == "default-secret-change-this" {
+		log.Fatal("JWT_SECRET must be set to a secure value in production")
+	}
 
 	return &Config{
 		Port:    getEnv("PORT", "8080"),
@@ -65,7 +89,7 @@ func Load() *Config {
 		MongoDatabase: getEnv("MONGO_DATABASE", "life_tracker"),
 
 		// JWT
-		JWTSecret:        getEnv("JWT_SECRET", "default-secret-change-this"),
+		JWTSecret:        jwtSecret,
 		JWTExpiry:        getEnv("JWT_EXPIRY", "24h"),
 		JWTRefreshExpiry: getEnv("JWT_REFRESH_EXPIRY", "168h"),
 
@@ -73,6 +97,28 @@ func Load() *Config {
 
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 	}
+}
+
+func findEnvFile(filename string) string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	for {
+		path := filepath.Join(dir, filename)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+
+	return ""
 }
 
 func getEnv(key, defaultValue string) string {
