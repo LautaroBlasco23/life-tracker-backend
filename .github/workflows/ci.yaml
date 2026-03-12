@@ -58,7 +58,7 @@ jobs:
         env:
           TEST_POSTGRES_DSN: postgres://postgres:test_password@localhost:5433/life_tracker_test?sslmode=disable
           TEST_MONGO_URI: mongodb://test_user:test_password@localhost:27018
-        run: make test
+        run: make test-only
 
   build-push:
     needs: test
