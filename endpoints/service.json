@@ -1,6 +1,6 @@
 {
   "name": "life-tracker-backend",
-  "url": "http://api:8080",
+  "url": "http://backend:8080",
   "routes": [
     "/api/auth/register",
     "/api/auth/login",
