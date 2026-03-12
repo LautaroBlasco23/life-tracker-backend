@@ -1,0 +1,63 @@
+[
+  {
+    "route": "/api/activities",
+    "method": "POST",
+    "validation": {
+      "title": "string",
+      "description": "string",
+      "frequency": "string",
+      "dayFrequency": "string",
+      "dayTime": "string",
+      "completionAmount": "number"
+    }
+  },
+  {
+    "route": "/api/activities",
+    "method": "GET"
+  },
+  {
+    "route": "/api/activities/today",
+    "method": "GET"
+  },
+  {
+    "route": "/api/activities/{id}",
+    "method": "GET"
+  },
+  {
+    "route": "/api/activities/{id}",
+    "method": "PUT",
+    "validation": {
+      "title": "string",
+      "description": "string",
+      "frequency": "string",
+      "dayFrequency": "string",
+      "dayTime": "string",
+      "completionAmount": "number",
+      "isActive": "boolean"
+    }
+  },
+  {
+    "route": "/api/activities/{id}",
+    "method": "DELETE"
+  },
+  {
+    "route": "/api/activities/{id}/record",
+    "method": "POST",
+    "validation": {
+      "completionDate": "string",
+      "notes": "string"
+    }
+  },
+  {
+    "route": "/api/activities/{id}/records",
+    "method": "GET"
+  },
+  {
+    "route": "/api/activities/{id}/stats",
+    "method": "GET"
+  },
+  {
+    "route": "/api/activities/{id}/revert",
+    "method": "DELETE"
+  }
+]

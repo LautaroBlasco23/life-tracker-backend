@@ -1,0 +1,39 @@
+[
+  {
+    "route": "/api/users",
+    "method": "GET"
+  },
+  {
+    "route": "/api/users/me",
+    "method": "GET"
+  },
+  {
+    "route": "/api/users/me",
+    "method": "PUT",
+    "validation": {
+      "firstName": "string",
+      "lastName": "string",
+      "timezone": "string",
+      "profilePicUrl": "string"
+    }
+  },
+  {
+    "route": "/api/users/me/image",
+    "method": "POST",
+    "validation": {
+      "image": "file_image"
+    }
+  },
+  {
+    "route": "/api/users/me/image",
+    "method": "DELETE"
+  },
+  {
+    "route": "/api/users/{id}",
+    "method": "GET"
+  },
+  {
+    "route": "/api/users/{id}",
+    "method": "DELETE"
+  }
+]

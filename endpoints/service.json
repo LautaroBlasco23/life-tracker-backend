@@ -1,0 +1,43 @@
+{
+  "name": "life-tracker-backend",
+  "url": "http://api:8080",
+  "routes": [
+    "/api/auth/register",
+    "/api/auth/login",
+    "/api/auth/refresh",
+    "/api/auth/password",
+    "/api/auth/email",
+    "/api/users",
+    "/api/users/me",
+    "/api/users/me/image",
+    "/api/users/{id}",
+    "/api/activities",
+    "/api/activities/today",
+    "/api/activities/{id}",
+    "/api/activities/{id}/record",
+    "/api/activities/{id}/records",
+    "/api/activities/{id}/stats",
+    "/api/activities/{id}/revert",
+    "/api/finances/categories",
+    "/api/finances/transactions",
+    "/api/finances/transactions/{id}",
+    "/api/finances/fixed-transactions",
+    "/api/finances/fixed-transactions/{id}",
+    "/api/finances/payments",
+    "/api/finances/payments/{id}",
+    "/api/finances/summary",
+    "/api/finances/monthly-stats",
+    "/api/time-records",
+    "/api/time-records/stats",
+    "/api/time-records/{id}",
+    "/api/notes",
+    "/api/notes/{id}",
+    "/health"
+  ],
+  "features": {
+    "ratelimiter": true,
+    "cors": true,
+    "injection": true,
+    "cache": false
+  }
+}
