@@ -14,55 +14,61 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
 )
 
 type FinanceService struct {
-	categoryRepo    repository.CategoryRepository
 	transactionRepo repository.TransactionRepository
 	paymentRepo     repository.PaymentRepository
 }
 
-func NewFinanceService(db *gorm.DB, mongoDB *mongo.Database) *FinanceService {
+func NewFinanceService(mongoDB *mongo.Database) *FinanceService {
 	return &FinanceService{
-		categoryRepo:    repository.NewCategoryRepository(db),
 		transactionRepo: repository.NewTransactionRepository(mongoDB),
 		paymentRepo:     repository.NewPaymentRepository(mongoDB),
 	}
 }
 
-func (s *FinanceService) InitializeSystemCategories() error {
-	for _, cat := range model.SystemCategories {
-		_, err := s.categoryRepo.FindByName(cat.Name)
-		if err != nil {
-			if !errors.Is(err, repository.ErrCategoryNotFound) {
-				return fmt.Errorf("failed to check category %s: %w", cat.Name, err)
-			}
-			if err := s.categoryRepo.Create(&cat); err != nil {
-				return fmt.Errorf("failed to create category %s: %w", cat.Name, err)
+func (s *FinanceService) GetCategories(transactionType *string, frequency *string) []*dto.CategoryResponse {
+	var categories []model.Category
+
+	switch {
+	case transactionType != nil && frequency != nil:
+		for _, cat := range model.Categories {
+			if string(cat.Type) == *transactionType && string(cat.ApplicableToFreq) == *frequency {
+				categories = append(categories, cat)
 			}
 		}
-	}
-	return nil
-}
-
-func (s *FinanceService) GetCategories(transactionType *string, frequency *string) ([]*dto.CategoryResponse, error) {
-	categories, err := s.categoryRepo.FindAll(transactionType, frequency)
-	if err != nil {
-		return nil, errors.New("failed to fetch categories")
+	case transactionType != nil:
+		for _, cat := range model.Categories {
+			if string(cat.Type) == *transactionType {
+				categories = append(categories, cat)
+			}
+		}
+	case frequency != nil:
+		for _, cat := range model.Categories {
+			if string(cat.ApplicableToFreq) == *frequency {
+				categories = append(categories, cat)
+			}
+		}
+	default:
+		categories = model.Categories
 	}
 
 	responses := make([]*dto.CategoryResponse, len(categories))
 	for i := range categories {
-		responses[i] = s.categoryToResponse(&categories[i])
+		responses[i] = &dto.CategoryResponse{
+			Name:             categories[i].Name,
+			Type:             string(categories[i].Type),
+			Icon:             categories[i].Icon,
+			ApplicableToFreq: string(categories[i].ApplicableToFreq),
+		}
 	}
-	return responses, nil
+	return responses
 }
 
 func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error) {
-	category, err := s.categoryRepo.FindByID(req.CategoryID)
-	if err != nil {
-		return nil, errors.New("category not found")
+	if !model.IsValidCategoryName(req.Category) {
+		return nil, errors.New("invalid category")
 	}
 
 	transactionDate := time.Now()
@@ -76,7 +82,7 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 		Type:        model.TransactionType(req.Type),
 		Frequency:   model.TransactionFrequency(req.Frequency),
 		Amount:      req.Amount,
-		CategoryID:  req.CategoryID,
+		Category:    req.Category,
 		Description: req.Description,
 		Date:        transactionDate,
 		CreatedAt:   time.Now(),
@@ -98,29 +104,29 @@ func (s *FinanceService) CreateTransaction(userID uint, req *dto.CreateTransacti
 
 	monitoring.TransactionsCreated.WithLabelValues(
 		string(transaction.Type),
-		category.Name,
+		transaction.Category,
 	).Inc()
 
 	monitoring.TransactionAmount.WithLabelValues(
 		string(transaction.Type),
-		category.Name,
+		transaction.Category,
 	).Observe(transaction.Amount)
 
 	if transaction.IsFixed() {
 		monitoring.FixedTransactionsTotal.WithLabelValues(string(transaction.Type)).Inc()
 	}
 
-	return transaction.ToResponse(category.Name), nil
+	return transaction.ToResponse(), nil
 }
 
-func (s *FinanceService) GetTransactions(userID uint, transactionType *string, frequency *string, startDate, endDate *time.Time, month, year *int, categoryID *uint, limit int, loc *time.Location) ([]*dto.TransactionResponse, error) {
+func (s *FinanceService) GetTransactions(userID uint, transactionType *string, frequency *string, startDate, endDate *time.Time, month, year *int, category *string, limit int, loc *time.Location) ([]*dto.TransactionResponse, error) {
 	effectiveStart, effectiveEnd := s.calculateDateRange(startDate, endDate, month, year, loc)
 
 	filter := repository.TransactionFilter{
 		UserID:          userID,
 		TransactionType: transactionType,
 		Frequency:       frequency,
-		CategoryID:      categoryID,
+		Category:        category,
 		StartDate:       effectiveStart,
 		EndDate:         effectiveEnd,
 	}
@@ -130,11 +136,9 @@ func (s *FinanceService) GetTransactions(userID uint, transactionType *string, f
 		return nil, errors.New("failed to fetch transactions")
 	}
 
-	categoryMap := s.loadCategoryMap()
-
 	responses := make([]*dto.TransactionResponse, len(transactions))
 	for i := range transactions {
-		responses[i] = transactions[i].ToResponse(categoryMap[transactions[i].CategoryID])
+		responses[i] = transactions[i].ToResponse()
 	}
 	return responses, nil
 }
@@ -175,8 +179,6 @@ func (s *FinanceService) GetFixedTransactions(userID uint, month, year *int, loc
 		paymentTotals[agg.TransactionID] = agg.Total
 	}
 
-	categoryMap := s.loadCategoryMap()
-
 	responses := make([]*dto.FixedTransactionResponse, len(transactions))
 	for i, t := range transactions {
 		totalPaid := paymentTotals[t.ID]
@@ -188,7 +190,7 @@ func (s *FinanceService) GetFixedTransactions(userID uint, month, year *int, loc
 			currentPeriodPayment = &summary
 		}
 
-		responses[i] = t.ToFixedResponse(categoryMap[t.CategoryID], totalPaid, nil, currentPeriodPayment)
+		responses[i] = t.ToFixedResponse(totalPaid, nil, currentPeriodPayment)
 	}
 
 	return responses, nil
@@ -233,23 +235,7 @@ func (s *FinanceService) GetFixedTransactionWithPayments(userID uint, transactio
 		currentPeriodPayment = &summary
 	}
 
-	categoryName := ""
-	if category, err := s.categoryRepo.FindByID(transaction.CategoryID); err == nil {
-		categoryName = category.Name
-	}
-
-	return transaction.ToFixedResponse(categoryName, totalPaid, paymentSummaries, currentPeriodPayment), nil
-}
-
-func (s *FinanceService) loadCategoryMap() map[uint]string {
-	categoryMap := make(map[uint]string)
-	categories, err := s.categoryRepo.FindAll(nil, nil)
-	if err == nil {
-		for _, cat := range categories {
-			categoryMap[cat.ID] = cat.Name
-		}
-	}
-	return categoryMap
+	return transaction.ToFixedResponse(totalPaid, paymentSummaries, currentPeriodPayment), nil
 }
 
 func (s *FinanceService) GetTransaction(userID uint, transactionID string) (*dto.TransactionResponse, error) {
@@ -266,13 +252,7 @@ func (s *FinanceService) GetTransaction(userID uint, transactionID string) (*dto
 		return nil, errors.New("failed to fetch transaction")
 	}
 
-	var categoryName string
-	category, err := s.categoryRepo.FindByID(transaction.CategoryID)
-	if err == nil {
-		categoryName = category.Name
-	}
-
-	return transaction.ToResponse(categoryName), nil
+	return transaction.ToResponse(), nil
 }
 
 func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, req *dto.UpdateTransactionRequest) (*dto.TransactionResponse, error) {
@@ -300,11 +280,11 @@ func (s *FinanceService) UpdateTransaction(userID uint, transactionID string, re
 	if req.Amount != nil {
 		updates["amount"] = *req.Amount
 	}
-	if req.CategoryID != nil {
-		if _, err = s.categoryRepo.FindByID(*req.CategoryID); err != nil {
-			return nil, errors.New("category not found")
+	if req.Category != nil {
+		if !model.IsValidCategoryName(*req.Category) {
+			return nil, errors.New("invalid category")
 		}
-		updates["categoryId"] = *req.CategoryID
+		updates["category"] = *req.Category
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
@@ -489,13 +469,10 @@ func (s *FinanceService) GetFinanceSummary(userID uint, startDate, endDate time.
 		fixedTxMap[fixedTransactions[i].ID] = &fixedTransactions[i]
 	}
 
-	categoryMap := s.loadCategoryMap()
-
 	incomeByCategory, outcomeByCategory, totalIncome, totalOutcome := s.processSummaryData(
 		variableResults,
 		paymentResults,
 		fixedTxMap,
-		categoryMap,
 	)
 
 	incomeList := s.buildCategoryList(incomeByCategory, totalIncome)
@@ -517,25 +494,23 @@ func (s *FinanceService) processSummaryData(
 	variableResults []repository.AggregationResult,
 	paymentResults []repository.PaymentAggregationResult,
 	fixedTxMap map[primitive.ObjectID]*model.Transaction,
-	categoryMap map[uint]string,
-) (map[uint]*dto.CategorySummary, map[uint]*dto.CategorySummary, float64, float64) {
-	incomeByCategory := make(map[uint]*dto.CategorySummary)
-	outcomeByCategory := make(map[uint]*dto.CategorySummary)
+) (map[string]*dto.CategorySummary, map[string]*dto.CategorySummary, float64, float64) {
+	incomeByCategory := make(map[string]*dto.CategorySummary)
+	outcomeByCategory := make(map[string]*dto.CategorySummary)
 	var totalIncome, totalOutcome float64
 
 	for _, result := range variableResults {
 		summary := &dto.CategorySummary{
-			CategoryID:   result.CategoryID,
-			CategoryName: categoryMap[result.CategoryID],
+			CategoryName: result.Category,
 			Total:        result.Total,
 			Count:        result.Count,
 		}
 		if result.Type == "income" {
 			totalIncome += result.Total
-			incomeByCategory[result.CategoryID] = summary
+			incomeByCategory[result.Category] = summary
 		} else {
 			totalOutcome += result.Total
-			outcomeByCategory[result.CategoryID] = summary
+			outcomeByCategory[result.Category] = summary
 		}
 	}
 
@@ -547,10 +522,10 @@ func (s *FinanceService) processSummaryData(
 
 		if tx.Type == model.TransactionTypeIncome {
 			totalIncome += paymentAgg.Total
-			s.addOrUpdateCategorySummary(incomeByCategory, tx.CategoryID, categoryMap, paymentAgg.Total, paymentAgg.Count)
+			s.addOrUpdateCategorySummary(incomeByCategory, tx.Category, paymentAgg.Total, paymentAgg.Count)
 		} else {
 			totalOutcome += paymentAgg.Total
-			s.addOrUpdateCategorySummary(outcomeByCategory, tx.CategoryID, categoryMap, paymentAgg.Total, paymentAgg.Count)
+			s.addOrUpdateCategorySummary(outcomeByCategory, tx.Category, paymentAgg.Total, paymentAgg.Count)
 		}
 	}
 
@@ -558,26 +533,24 @@ func (s *FinanceService) processSummaryData(
 }
 
 func (s *FinanceService) addOrUpdateCategorySummary(
-	summaryMap map[uint]*dto.CategorySummary,
-	categoryID uint,
-	categoryMap map[uint]string,
+	summaryMap map[string]*dto.CategorySummary,
+	category string,
 	total float64,
 	count int64,
 ) {
-	if existing, ok := summaryMap[categoryID]; ok {
+	if existing, ok := summaryMap[category]; ok {
 		existing.Total += total
 		existing.Count += count
 	} else {
-		summaryMap[categoryID] = &dto.CategorySummary{
-			CategoryID:   categoryID,
-			CategoryName: categoryMap[categoryID],
+		summaryMap[category] = &dto.CategorySummary{
+			CategoryName: category,
 			Total:        total,
 			Count:        count,
 		}
 	}
 }
 
-func (s *FinanceService) buildCategoryList(categoryMap map[uint]*dto.CategorySummary, total float64) []dto.CategorySummary {
+func (s *FinanceService) buildCategoryList(categoryMap map[string]*dto.CategorySummary, total float64) []dto.CategorySummary {
 	list := make([]dto.CategorySummary, 0, len(categoryMap))
 	for _, summary := range categoryMap {
 		if total > 0 {
@@ -664,16 +637,4 @@ func (s *FinanceService) calculateDateRange(startDate, endDate *time.Time, month
 	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 	end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
 	return &start, &end
-}
-
-func (s *FinanceService) categoryToResponse(category *model.Category) *dto.CategoryResponse {
-	return &dto.CategoryResponse{
-		ID:               category.ID,
-		Name:             category.Name,
-		Type:             string(category.Type),
-		Icon:             category.Icon,
-		ApplicableToFreq: string(category.ApplicableToFreq),
-		CreatedAt:        category.CreatedAt,
-		UpdatedAt:        category.UpdatedAt,
-	}
 }

@@ -6,11 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
 )
 
-func RegisterFinanceRoutes(router *gin.RouterGroup, db *gorm.DB, mongoDB *mongo.Database) {
-	financeService := service.NewFinanceService(db, mongoDB)
+func RegisterFinanceRoutes(router *gin.RouterGroup, mongoDB *mongo.Database) {
+	financeService := service.NewFinanceService(mongoDB)
 	financeController := controller.NewFinanceController(financeService)
 
 	financeGroup := router.Group("/finances")

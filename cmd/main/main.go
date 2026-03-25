@@ -116,7 +116,7 @@ func run() error {
 			authRoutes.RegisterProtectedAuthRoutes(protected, dbs.PostgreSQL, cfg, imageClient)
 			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL, imageClient)
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
-			financeRoutes.RegisterFinanceRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
+			financeRoutes.RegisterFinanceRoutes(protected, dbs.MongoDB)
 			timeRoutes.RegisterTimeRoutes(protected, dbs.PostgreSQL)
 			noteRoutes.RegisterNoteRoutes(protected, dbs.PostgreSQL)
 		}

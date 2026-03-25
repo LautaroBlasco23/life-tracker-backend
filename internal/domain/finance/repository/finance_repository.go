@@ -12,11 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"gorm.io/gorm"
 )
 
 var (
-	ErrCategoryNotFound     = errors.New("category not found")
 	ErrTransactionNotFound  = errors.New("transaction not found")
 	ErrPaymentNotFound      = errors.New("payment not found")
 	ErrInvalidTransactionID = errors.New("invalid transaction ID")
@@ -27,7 +25,7 @@ var (
 type TransactionFilter struct {
 	TransactionType *string
 	Frequency       *string
-	CategoryID      *uint
+	Category        *string
 	StartDate       *time.Time
 	EndDate         *time.Time
 	UserID          uint
@@ -41,10 +39,10 @@ type PaymentFilter struct {
 }
 
 type AggregationResult struct {
-	Type       string
-	CategoryID uint
-	Total      float64
-	Count      int64
+	Type     string
+	Category string
+	Total    float64
+	Count    int64
 }
 
 type MonthlyAggregationResult struct {
@@ -58,13 +56,6 @@ type PaymentAggregationResult struct {
 	TransactionID primitive.ObjectID
 	Total         float64
 	Count         int64
-}
-
-type CategoryRepository interface {
-	FindAll(transactionType *string, frequency *string) ([]model.Category, error)
-	FindByID(id uint) (*model.Category, error)
-	FindByName(name string) (*model.Category, error)
-	Create(category *model.Category) error
 }
 
 type TransactionRepository interface {
@@ -88,57 +79,6 @@ type PaymentRepository interface {
 	DeleteByTransactionID(ctx context.Context, transactionID primitive.ObjectID, userID uint) error
 	AggregateByTransaction(ctx context.Context, transactionIDs []primitive.ObjectID, userID uint) ([]PaymentAggregationResult, error)
 	AggregateByDateRange(ctx context.Context, userID uint, startDate, endDate time.Time) ([]PaymentAggregationResult, error)
-}
-
-// Category Repository Implementation
-
-type GormCategoryRepository struct {
-	db *gorm.DB
-}
-
-func NewCategoryRepository(db *gorm.DB) CategoryRepository {
-	return &GormCategoryRepository{db: db}
-}
-
-func (r *GormCategoryRepository) FindAll(transactionType *string, frequency *string) ([]model.Category, error) {
-	var categories []model.Category
-	query := r.db
-	if transactionType != nil {
-		query = query.Where("type = ?", *transactionType)
-	}
-	if frequency != nil {
-		query = query.Where("applicable_to_freq = ?", *frequency)
-	}
-	if err := query.Order("name ASC").Find(&categories).Error; err != nil {
-		return nil, err
-	}
-	return categories, nil
-}
-
-func (r *GormCategoryRepository) FindByID(id uint) (*model.Category, error) {
-	var category model.Category
-	if err := r.db.Where("id = ?", id).First(&category).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrCategoryNotFound
-		}
-		return nil, err
-	}
-	return &category, nil
-}
-
-func (r *GormCategoryRepository) FindByName(name string) (*model.Category, error) {
-	var category model.Category
-	if err := r.db.Where("name = ?", name).First(&category).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrCategoryNotFound
-		}
-		return nil, err
-	}
-	return &category, nil
-}
-
-func (r *GormCategoryRepository) Create(category *model.Category) error {
-	return r.db.Create(category).Error
 }
 
 // Transaction Repository Implementation
@@ -179,8 +119,8 @@ func (r *MongoTransactionRepository) FindByFilter(ctx context.Context, filter Tr
 	if filter.Frequency != nil {
 		bsonFilter["frequency"] = *filter.Frequency
 	}
-	if filter.CategoryID != nil {
-		bsonFilter["categoryId"] = *filter.CategoryID
+	if filter.Category != nil {
+		bsonFilter["category"] = *filter.Category
 	}
 
 	if filter.StartDate != nil || filter.EndDate != nil {
@@ -271,8 +211,8 @@ func (r *MongoTransactionRepository) Aggregate(ctx context.Context, userID uint,
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"type":       "$type",
-					"categoryId": "$categoryId",
+					"type":     "$type",
+					"category": "$category",
 				},
 				"total": bson.M{"$sum": "$amount"},
 				"count": bson.M{"$sum": 1},
@@ -294,8 +234,8 @@ func (r *MongoTransactionRepository) Aggregate(ctx context.Context, userID uint,
 	for cursor.Next(ctx) {
 		var raw struct {
 			ID struct {
-				Type       string `bson:"type"`
-				CategoryID uint   `bson:"categoryId"`
+				Type     string `bson:"type"`
+				Category string `bson:"category"`
 			} `bson:"_id"`
 			Total float64 `bson:"total"`
 			Count int64   `bson:"count"`
@@ -304,10 +244,10 @@ func (r *MongoTransactionRepository) Aggregate(ctx context.Context, userID uint,
 			continue
 		}
 		results = append(results, AggregationResult{
-			Type:       raw.ID.Type,
-			CategoryID: raw.ID.CategoryID,
-			Total:      raw.Total,
-			Count:      raw.Count,
+			Type:     raw.ID.Type,
+			Category: raw.ID.Category,
+			Total:    raw.Total,
+			Count:    raw.Count,
 		})
 	}
 	return results, nil
