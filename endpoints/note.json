@@ -1,0 +1,30 @@
+[
+  {
+    "route": "/api/notes",
+    "method": "POST",
+    "validation": {
+      "title": "string",
+      "content": "string"
+    }
+  },
+  {
+    "route": "/api/notes",
+    "method": "GET"
+  },
+  {
+    "route": "/api/notes/{id}",
+    "method": "GET"
+  },
+  {
+    "route": "/api/notes/{id}",
+    "method": "PUT",
+    "validation": {
+      "title": "string",
+      "content": "string"
+    }
+  },
+  {
+    "route": "/api/notes/{id}",
+    "method": "DELETE"
+  }
+]

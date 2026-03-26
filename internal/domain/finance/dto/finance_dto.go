@@ -3,13 +3,10 @@ package dto
 import "time"
 
 type CategoryResponse struct {
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
-	Name             string    `json:"name"`
-	Type             string    `json:"type"`
-	Icon             string    `json:"icon,omitempty"`
-	ApplicableToFreq string    `json:"applicableToFreq"`
-	ID               uint      `json:"id"`
+	Name             string `json:"name"`
+	Type             string `json:"type"`
+	Icon             string `json:"icon,omitempty"`
+	ApplicableToFreq string `json:"applicableToFreq"`
 }
 
 type CreateTransactionRequest struct {
@@ -19,7 +16,7 @@ type CreateTransactionRequest struct {
 	PaymentFrequency string    `json:"paymentFrequency,omitempty" binding:"omitempty,oneof=monthly bimonthly yearly"`
 	Description      string    `json:"description,omitempty" binding:"max=500"`
 	Amount           float64   `json:"amount" binding:"gte=0"`
-	CategoryID       uint      `json:"categoryId" binding:"required"`
+	Category         string    `json:"category" binding:"required"`
 }
 
 type UpdateTransactionRequest struct {
@@ -27,7 +24,7 @@ type UpdateTransactionRequest struct {
 	Frequency        *string    `json:"frequency,omitempty" binding:"omitempty,oneof=fixed variable"`
 	PaymentFrequency *string    `json:"paymentFrequency,omitempty" binding:"omitempty,oneof=monthly bimonthly yearly"`
 	Amount           *float64   `json:"amount,omitempty" binding:"omitempty,gte=0"`
-	CategoryID       *uint      `json:"categoryId,omitempty"`
+	Category         *string    `json:"category,omitempty"`
 	Description      *string    `json:"description,omitempty" binding:"omitempty,max=500"`
 	Date             *time.Time `json:"date,omitempty"`
 }
@@ -44,7 +41,6 @@ type TransactionResponse struct {
 	Description      string    `json:"description,omitempty"`
 	UserID           uint      `json:"userId"`
 	Amount           float64   `json:"amount"`
-	CategoryID       uint      `json:"categoryId"`
 }
 
 type FixedTransactionResponse struct {
@@ -58,7 +54,6 @@ type FixedTransactionResponse struct {
 	TotalPaid            float64          `json:"totalPaid"`
 	Payments             []PaymentSummary `json:"payments,omitempty"`
 	CurrentPeriodPayment *PaymentSummary  `json:"currentPeriodPayment,omitempty"`
-	CategoryID           uint             `json:"categoryId"`
 }
 
 type PaymentSummary struct {
@@ -92,7 +87,6 @@ type FinanceSummaryResponse struct {
 
 type CategorySummary struct {
 	CategoryName string  `json:"categoryName"`
-	CategoryID   uint    `json:"categoryId"`
 	Total        float64 `json:"total"`
 	Percentage   float64 `json:"percentage"`
 	Count        int64   `json:"count"`

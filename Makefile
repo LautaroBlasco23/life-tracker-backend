@@ -55,6 +55,9 @@ dev: hooks db-up
 	@until docker exec golang_api_postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
 	ENV_FILE=.env air -c .air.toml
 
+dev-app: hooks
+	ENV_FILE=.env air -c .air.toml
+
 docker-up:
 	@[ -f .env ] || (echo ".env not found"; exit 1)
 	docker compose --env-file .env up -d

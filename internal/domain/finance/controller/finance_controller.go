@@ -46,7 +46,7 @@ type transactionFilters struct {
 	endDate         *time.Time
 	month           *int
 	year            *int
-	categoryID      *uint
+	category        *string
 	limit           int
 }
 
@@ -62,7 +62,7 @@ func parseTransactionFilters(ctx *gin.Context) transactionFilters {
 
 	f.month = parseIntInRange(ctx.Query("month"), 1, 12)
 	f.year = parseIntInRange(ctx.Query("year"), 2000, 2100)
-	f.categoryID = parseUint(ctx.Query("category_id"))
+	f.category = parseString(ctx.Query("category"))
 	f.startDate = parseDate(ctx.Query("start_date"))
 	f.endDate = parseDate(ctx.Query("end_date"))
 
@@ -95,16 +95,11 @@ func parseIntPositive(s string) *int {
 	return &v
 }
 
-func parseUint(s string) *uint {
+func parseString(s string) *string {
 	if s == "" {
 		return nil
 	}
-	v, err := strconv.ParseUint(s, 10, 32)
-	if err != nil {
-		return nil
-	}
-	result := uint(v)
-	return &result
+	return &s
 }
 
 func parseDate(s string) *time.Time {
@@ -127,11 +122,7 @@ func (c *FinanceController) GetCategories(ctx *gin.Context) {
 		frequency = &f
 	}
 
-	categories, err := c.financeService.GetCategories(transactionType, frequency)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	categories := c.financeService.GetCategories(transactionType, frequency)
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Categories retrieved successfully",
@@ -186,7 +177,7 @@ func (c *FinanceController) GetTransactions(ctx *gin.Context) {
 		filters.endDate,
 		filters.month,
 		filters.year,
-		filters.categoryID,
+		filters.category,
 		filters.limit,
 		loc,
 	)

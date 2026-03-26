@@ -1,0 +1,36 @@
+[
+  {
+    "route": "/api/time-records",
+    "method": "POST",
+    "validation": {
+      "category": "string",
+      "description": "string",
+      "durationMinutes": "number"
+    }
+  },
+  {
+    "route": "/api/time-records",
+    "method": "GET"
+  },
+  {
+    "route": "/api/time-records/stats",
+    "method": "GET"
+  },
+  {
+    "route": "/api/time-records/{id}",
+    "method": "GET"
+  },
+  {
+    "route": "/api/time-records/{id}",
+    "method": "PUT",
+    "validation": {
+      "category": "string",
+      "description": "string",
+      "durationMinutes": "number"
+    }
+  },
+  {
+    "route": "/api/time-records/{id}",
+    "method": "DELETE"
+  }
+]

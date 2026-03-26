@@ -1,0 +1,77 @@
+[
+  {
+    "route": "/api/finances/categories",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/transactions",
+    "method": "POST",
+    "validation": {
+      "type": "string",
+      "frequency": "string",
+      "paymentFrequency": "string",
+      "description": "string",
+      "amount": "number",
+      "categoryId": "number",
+      "date": "string"
+    }
+  },
+  {
+    "route": "/api/finances/transactions",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/transactions/{id}",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/transactions/{id}",
+    "method": "PUT",
+    "validation": {
+      "type": "string",
+      "frequency": "string",
+      "paymentFrequency": "string",
+      "amount": "number",
+      "categoryId": "number",
+      "description": "string",
+      "date": "string"
+    }
+  },
+  {
+    "route": "/api/finances/transactions/{id}",
+    "method": "DELETE"
+  },
+  {
+    "route": "/api/finances/fixed-transactions",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/fixed-transactions/{id}",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/payments",
+    "method": "POST",
+    "validation": {
+      "transactionId": "string",
+      "amount": "number",
+      "date": "string"
+    }
+  },
+  {
+    "route": "/api/finances/payments",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/payments/{id}",
+    "method": "DELETE"
+  },
+  {
+    "route": "/api/finances/summary",
+    "method": "GET"
+  },
+  {
+    "route": "/api/finances/monthly-stats",
+    "method": "GET"
+  }
+]

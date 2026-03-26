@@ -15,7 +15,7 @@ type Transaction struct {
 	Frequency        TransactionFrequency `bson:"frequency" json:"frequency"`
 	PaymentFrequency PaymentFrequency     `bson:"paymentFrequency,omitempty" json:"paymentFrequency,omitempty"`
 	Amount           float64              `bson:"amount" json:"amount"`
-	CategoryID       uint                 `bson:"categoryId" json:"categoryId"`
+	Category         string               `bson:"category" json:"category"`
 	Description      string               `bson:"description,omitempty" json:"description,omitempty"`
 	Date             time.Time            `bson:"date" json:"date"`
 	CreatedAt        time.Time            `bson:"createdAt" json:"createdAt"`
@@ -26,7 +26,7 @@ func (t *Transaction) IsFixed() bool {
 	return t.Frequency == TransactionFrequencyFixed
 }
 
-func (t *Transaction) ToResponse(categoryName string) *dto.TransactionResponse {
+func (t *Transaction) ToResponse() *dto.TransactionResponse {
 	return &dto.TransactionResponse{
 		ID:               t.ID.Hex(),
 		UserID:           t.UserID,
@@ -34,8 +34,7 @@ func (t *Transaction) ToResponse(categoryName string) *dto.TransactionResponse {
 		Frequency:        string(t.Frequency),
 		PaymentFrequency: string(t.PaymentFrequency),
 		Amount:           t.Amount,
-		CategoryID:       t.CategoryID,
-		CategoryName:     categoryName,
+		CategoryName:     t.Category,
 		Description:      t.Description,
 		Date:             t.Date,
 		CreatedAt:        t.CreatedAt,
@@ -43,13 +42,12 @@ func (t *Transaction) ToResponse(categoryName string) *dto.TransactionResponse {
 	}
 }
 
-func (t *Transaction) ToFixedResponse(categoryName string, totalPaid float64, payments []dto.PaymentSummary, currentPeriodPayment *dto.PaymentSummary) *dto.FixedTransactionResponse {
+func (t *Transaction) ToFixedResponse(totalPaid float64, payments []dto.PaymentSummary, currentPeriodPayment *dto.PaymentSummary) *dto.FixedTransactionResponse {
 	return &dto.FixedTransactionResponse{
 		ID:                   t.ID.Hex(),
 		Type:                 string(t.Type),
 		PaymentFrequency:     string(t.PaymentFrequency),
-		CategoryID:           t.CategoryID,
-		CategoryName:         categoryName,
+		CategoryName:         t.Category,
 		Description:          t.Description,
 		TotalPaid:            totalPaid,
 		Payments:             payments,
