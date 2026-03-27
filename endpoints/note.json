@@ -3,8 +3,8 @@
     "route": "/api/notes",
     "method": "POST",
     "validation": {
-      "title": "string",
-      "content": "string"
+      "title": { "type": "string" },
+      "content": { "type": "string" }
     }
   },
   {
@@ -19,8 +19,8 @@
     "route": "/api/notes/{id}",
     "method": "PUT",
     "validation": {
-      "title": "string",
-      "content": "string"
+      "title": { "type": "string", "required": false },
+      "content": { "type": "string", "required": false }
     }
   },
   {

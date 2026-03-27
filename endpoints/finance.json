@@ -7,13 +7,13 @@
     "route": "/api/finances/transactions",
     "method": "POST",
     "validation": {
-      "type": "string",
-      "frequency": "string",
-      "paymentFrequency": "string",
-      "description": "string",
-      "amount": "number",
-      "categoryId": "number",
-      "date": "string"
+      "type": { "type": "enum", "values": ["income", "outcome"] },
+      "frequency": { "type": "enum", "values": ["fixed", "variable"] },
+      "paymentFrequency": { "type": "enum", "values": ["monthly", "bimonthly", "yearly"], "required": false },
+      "description": { "type": "string", "required": false },
+      "amount": { "type": "integer" },
+      "category": { "type": "string" },
+      "date": { "type": "string", "required": false }
     }
   },
   {
@@ -28,13 +28,13 @@
     "route": "/api/finances/transactions/{id}",
     "method": "PUT",
     "validation": {
-      "type": "string",
-      "frequency": "string",
-      "paymentFrequency": "string",
-      "amount": "number",
-      "categoryId": "number",
-      "description": "string",
-      "date": "string"
+      "type": { "type": "enum", "values": ["income", "outcome"], "required": false },
+      "frequency": { "type": "enum", "values": ["fixed", "variable"], "required": false },
+      "paymentFrequency": { "type": "enum", "values": ["monthly", "bimonthly", "yearly"], "required": false },
+      "amount": { "type": "integer", "required": false },
+      "category": { "type": "string", "required": false },
+      "description": { "type": "string", "required": false },
+      "date": { "type": "string", "required": false }
     }
   },
   {
@@ -53,9 +53,9 @@
     "route": "/api/finances/payments",
     "method": "POST",
     "validation": {
-      "transactionId": "string",
-      "amount": "number",
-      "date": "string"
+      "transactionId": { "type": "string" },
+      "amount": { "type": "integer" },
+      "date": { "type": "string", "required": false }
     }
   },
   {

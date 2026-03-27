@@ -3,9 +3,9 @@
     "route": "/api/time-records",
     "method": "POST",
     "validation": {
-      "category": "string",
-      "description": "string",
-      "durationMinutes": "number"
+      "category": { "type": "string" },
+      "description": { "type": "string", "required": false },
+      "durationMinutes": { "type": "integer" }
     }
   },
   {
@@ -24,9 +24,9 @@
     "route": "/api/time-records/{id}",
     "method": "PUT",
     "validation": {
-      "category": "string",
-      "description": "string",
-      "durationMinutes": "number"
+      "category": { "type": "string", "required": false },
+      "description": { "type": "string", "required": false },
+      "durationMinutes": { "type": "integer", "required": false }
     }
   },
   {
