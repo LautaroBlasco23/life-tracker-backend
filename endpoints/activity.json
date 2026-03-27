@@ -3,12 +3,12 @@
     "route": "/api/activities",
     "method": "POST",
     "validation": {
-      "title": "string",
-      "description": "string",
-      "frequency": "string",
-      "dayFrequency": "string",
-      "dayTime": "string",
-      "completionAmount": "number"
+      "title": { "type": "string" },
+      "description": { "type": "string", "required": false },
+      "frequency": { "type": "enum", "values": ["daily", "weekly", "monthly", "oneTime"] },
+      "dayFrequency": { "type": "string", "required": false },
+      "dayTime": { "type": "enum", "values": ["notSpecified", "morning", "afternoon", "evening"] },
+      "completionAmount": { "type": "integer" }
     }
   },
   {
@@ -27,13 +27,12 @@
     "route": "/api/activities/{id}",
     "method": "PUT",
     "validation": {
-      "title": "string",
-      "description": "string",
-      "frequency": "string",
-      "dayFrequency": "string",
-      "dayTime": "string",
-      "completionAmount": "number",
-      "isActive": "boolean"
+      "title": { "type": "string", "required": false },
+      "description": { "type": "string", "required": false },
+      "frequency": { "type": "enum", "values": ["daily", "weekly", "monthly", "oneTime"], "required": false },
+      "dayFrequency": { "type": "string", "required": false },
+      "dayTime": { "type": "enum", "values": ["notSpecified", "morning", "afternoon", "evening"], "required": false },
+      "completionAmount": { "type": "integer", "required": false }
     }
   },
   {
@@ -44,8 +43,8 @@
     "route": "/api/activities/{id}/record",
     "method": "POST",
     "validation": {
-      "completionDate": "string",
-      "notes": "string"
+      "completionDate": { "type": "string", "required": false },
+      "notes": { "type": "string", "required": false }
     }
   },
   {

@@ -11,18 +11,15 @@
     "route": "/api/users/me",
     "method": "PUT",
     "validation": {
-      "firstName": "string",
-      "lastName": "string",
-      "timezone": "string",
-      "profilePicUrl": "string"
+      "firstName": { "type": "string", "required": false },
+      "lastName": { "type": "string", "required": false },
+      "timezone": { "type": "string", "required": false },
+      "profilePicUrl": { "type": "string", "required": false }
     }
   },
   {
     "route": "/api/users/me/image",
-    "method": "POST",
-    "validation": {
-      "image": "file_image"
-    }
+    "method": "POST"
   },
   {
     "route": "/api/users/me/image",
