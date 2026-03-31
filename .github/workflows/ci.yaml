@@ -98,3 +98,22 @@ jobs:
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
+
+      - name: Upload endpoint files
+        uses: actions/upload-artifact@v4
+        with:
+          name: endpoint-files
+          path: endpoints/
+          retention-days: 7
+
+  dispatch:
+    needs: build-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger infra redeploy
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          repository: lautaroblasco1998/life-tracker-infra
+          event-type: redeploy
+          client-payload: '{"source": "backend", "sha": "${{ github.sha }}"}'

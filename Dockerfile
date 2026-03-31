@@ -15,6 +15,7 @@ RUN addgroup -g 1001 -S appgroup && \
 WORKDIR /app
 
 COPY --from=builder /app/main .
+COPY --from=builder /app/endpoints /app/endpoints
 
 RUN chown -R appuser:appgroup /app
 
