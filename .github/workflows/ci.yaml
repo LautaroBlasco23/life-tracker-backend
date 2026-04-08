@@ -7,6 +7,12 @@ on:
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/lifetracker-backend
+  GO_VERSION: "1.23"
+  TEST_DB_PASSWORD: test_password
+  TEST_DB_NAME: life_tracker_test
+  TEST_MONGO_USER: test_user
+  TEST_MONGO_PASSWORD: test_password
+  TEST_MONGO_DB: life_tracker_test
 
 jobs:
   test:
@@ -16,8 +22,8 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: life_tracker_test
+          POSTGRES_PASSWORD: ${{ env.TEST_DB_PASSWORD }}
+          POSTGRES_DB: ${{ env.TEST_DB_NAME }}
         ports:
           - 5433:5432
         options: >-
@@ -29,9 +35,9 @@ jobs:
       mongodb:
         image: mongo:7
         env:
-          MONGO_INITDB_ROOT_USERNAME: test_user
-          MONGO_INITDB_ROOT_PASSWORD: test_password
-          MONGO_INITDB_DATABASE: life_tracker_test
+          MONGO_INITDB_ROOT_USERNAME: ${{ env.TEST_MONGO_USER }}
+          MONGO_INITDB_ROOT_PASSWORD: ${{ env.TEST_MONGO_PASSWORD }}
+          MONGO_INITDB_DATABASE: ${{ env.TEST_MONGO_DB }}
         ports:
           - 27018:27017
         options: >-
@@ -45,7 +51,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Install dependencies
@@ -56,8 +62,8 @@ jobs:
 
       - name: Run tests
         env:
-          TEST_POSTGRES_DSN: postgres://postgres:test_password@localhost:5433/life_tracker_test?sslmode=disable
-          TEST_MONGO_URI: mongodb://test_user:test_password@localhost:27018
+          TEST_POSTGRES_DSN: postgres://postgres:${{ env.TEST_DB_PASSWORD }}@localhost:5433/${{ env.TEST_DB_NAME }}?sslmode=disable
+          TEST_MONGO_URI: mongodb://${{ env.TEST_MONGO_USER }}:${{ env.TEST_MONGO_PASSWORD }}@localhost:27018
         run: make test-only
 
   build-push:
@@ -87,7 +93,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
