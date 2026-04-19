@@ -16,6 +16,7 @@ import (
 
 	activityRoutes "life-tracker-backend/internal/domain/activity/routes"
 	financeRoutes "life-tracker-backend/internal/domain/finance/routes"
+	screenTimeRoutes "life-tracker-backend/internal/domain/screentime/routes"
 	userRoutes "life-tracker-backend/internal/domain/user/routes"
 
 	"github.com/gin-gonic/gin"
@@ -117,6 +118,7 @@ func run() error {
 			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL, imageClient)
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
 			financeRoutes.RegisterFinanceRoutes(protected, dbs.MongoDB)
+			screenTimeRoutes.RegisterScreenTimeRoutes(protected, dbs.MongoDB)
 			timeRoutes.RegisterTimeRoutes(protected, dbs.PostgreSQL)
 			noteRoutes.RegisterNoteRoutes(protected, dbs.PostgreSQL)
 		}
