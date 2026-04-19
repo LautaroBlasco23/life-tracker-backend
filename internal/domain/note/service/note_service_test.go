@@ -3,7 +3,9 @@
 // Subject:      internal/domain/note/service.NoteService against real PostgreSQL.
 // Scope:        CRUD operations — create, read, filter, update, soft-delete.
 // Out of scope: HTTP contract → note_controller_test.go
-//               Repository SQL correctness in isolation.
+//
+//	Repository SQL correctness in isolation.
+//
 // Infrastructure: PostgreSQL (test database via .env.test).
 // Data strategy:  TRUNCATE notes before each top-level test function.
 // Parallel-safe:  No — single shared DB connection, no per-test namespace.

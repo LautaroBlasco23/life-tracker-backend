@@ -2,9 +2,13 @@
 //
 // Subject:      internal/domain/finance/service.FinanceService against real MongoDB.
 // Scope:        Transactions and payments — categories, CRUD, fixed-transaction lifecycle,
-//               payment creation (period dedup), finance summary aggregation.
+//
+//	payment creation (period dedup), finance summary aggregation.
+//
 // Out of scope: HTTP contract → finance_controller_test.go
-//               Repository aggregation pipeline correctness in isolation.
+//
+//	Repository aggregation pipeline correctness in isolation.
+//
 // Infrastructure: MongoDB (test database via .env.test). Collections dropped between tests.
 // Data strategy:  Drop all collections before each top-level test function.
 // Parallel-safe:  No — shared MongoDB database, global drop between tests.

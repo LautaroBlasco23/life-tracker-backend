@@ -3,7 +3,9 @@
 // Subject:      internal/domain/time/service.TimeService against real PostgreSQL.
 // Scope:        CRUD operations and stats aggregation — create, filter, update, delete, GetStats.
 // Out of scope: HTTP contract → time_controller_test.go
-//               Repository date-range filtering in isolation.
+//
+//	Repository date-range filtering in isolation.
+//
 // Infrastructure: PostgreSQL (test database via .env.test).
 // Data strategy:  TRUNCATE time_records before each top-level test function.
 // Parallel-safe:  No — single shared DB connection, no per-test namespace.
