@@ -19,6 +19,7 @@ type UpdateActivityRequest struct {
 	DayFrequency     *string `json:"dayFrequency,omitempty"`
 	DayTime          *string `json:"dayTime,omitempty" binding:"omitempty,oneof=notSpecified morning afternoon evening"`
 	IsActive         *bool   `json:"isActive,omitempty"`
+	PrivacyStatus    *string `json:"privacyStatus,omitempty" binding:"omitempty,oneof=public private"`
 }
 
 type ActivityResponse struct {
@@ -36,6 +37,7 @@ type ActivityResponse struct {
 	TodayCompletions int         `json:"todayCompletions"`
 	IsActive         bool        `json:"isActive"`
 	IsCompletedToday bool        `json:"isCompletedToday"`
+	PrivacyStatus    string      `json:"privacyStatus"`
 }
 
 // Activity completion DTOs

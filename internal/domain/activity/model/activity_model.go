@@ -66,6 +66,26 @@ func (dt DayTime) Value() (driver.Value, error) {
 	return string(dt), nil
 }
 
+type PrivacyStatus string
+
+const (
+	PrivacyPublic  PrivacyStatus = "public"
+	PrivacyPrivate PrivacyStatus = "private"
+)
+
+func (p *PrivacyStatus) Scan(value interface{}) error {
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("cannot scan type %T into PrivacyStatus", value)
+	}
+	*p = PrivacyStatus(str)
+	return nil
+}
+
+func (p PrivacyStatus) Value() (driver.Value, error) {
+	return string(p), nil
+}
+
 type Activity struct {
 	CreatedAt        time.Time      `json:"createdAt"`
 	UpdatedAt        time.Time      `json:"updatedAt"`
@@ -75,6 +95,7 @@ type Activity struct {
 	Frequency        Frequency      `json:"frequency" gorm:"not null"`
 	DayFrequency     string         `json:"dayFrequency,omitempty" gorm:"type:text"`
 	DayTime          DayTime        `json:"dayTime" gorm:"not null;default:'notSpecified'"`
+	PrivacyStatus    PrivacyStatus  `json:"privacyStatus" gorm:"not null;default:'private';size:20"`
 	ID               uint           `json:"id" gorm:"primaryKey"`
 	UserID           uint           `json:"userId" gorm:"not null;index"`
 	CompletionAmount int            `json:"completionAmount" gorm:"not null;default:1"`
@@ -95,6 +116,7 @@ func (a *Activity) ToResponseWithCompletions(todayCompletions int, streak *dto.S
 		Frequency:        string(a.Frequency),
 		DayFrequency:     a.DayFrequency,
 		DayTime:          string(a.DayTime),
+		PrivacyStatus:    string(a.PrivacyStatus),
 		IsActive:         a.IsActive,
 		CreatedAt:        a.CreatedAt,
 		UpdatedAt:        a.UpdatedAt,

@@ -216,8 +216,23 @@ func (s *ActivityService) buildUpdateMap(req *dto.UpdateActivityRequest) map[str
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
 	}
+	if req.PrivacyStatus != nil {
+		updates["privacy_status"] = *req.PrivacyStatus
+	}
 
 	return updates
+}
+
+func (s *ActivityService) ListPublicByUser(userID uint) ([]*dto.ActivityResponse, error) {
+	activities, err := s.activityRepo.FindPublicByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch activities")
+	}
+	responses := make([]*dto.ActivityResponse, len(activities))
+	for i := range activities {
+		responses[i] = activities[i].ToResponse()
+	}
+	return responses, nil
 }
 
 func (s *ActivityService) DeleteActivity(userID, activityID uint) error {

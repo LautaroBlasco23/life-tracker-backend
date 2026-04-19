@@ -33,6 +33,7 @@ type ActivityRepository interface {
 	FindByUserID(userID uint, includeInactive bool) ([]model.Activity, error)
 	FindActiveByUserID(userID uint) ([]model.Activity, error)
 	FindFiltered(userID uint, filter *dto.ActivityFilter) ([]model.Activity, error)
+	FindPublicByUserID(userID uint) ([]model.Activity, error)
 	Update(activity *model.Activity, updates map[string]interface{}) error
 	Delete(id, userID uint) error
 }
@@ -107,6 +108,12 @@ func (r *GormActivityRepository) FindFiltered(userID uint, filter *dto.ActivityF
 		return nil, err
 	}
 	return activities, nil
+}
+
+func (r *GormActivityRepository) FindPublicByUserID(userID uint) ([]model.Activity, error) {
+	var activities []model.Activity
+	err := r.db.Where("user_id = ? AND privacy_status = ? AND is_active = ?", userID, "public", true).Find(&activities).Error
+	return activities, err
 }
 
 func (r *GormActivityRepository) Update(activity *model.Activity, updates map[string]interface{}) error {
