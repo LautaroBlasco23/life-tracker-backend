@@ -69,3 +69,12 @@ func JWTAuthMiddleware(secretKey string) gin.HandlerFunc {
 		ctx.Next()
 	}
 }
+
+func GetUserIDFromContext(ctx *gin.Context) (uint, bool) {
+	value, exists := ctx.Get("userID")
+	if !exists {
+		return 0, false
+	}
+	userID, ok := value.(uint)
+	return userID, ok
+}
