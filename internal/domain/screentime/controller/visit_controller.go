@@ -84,7 +84,7 @@ func (c *VisitController) GetVisits(ctx *gin.Context) {
 
 	limit := 100
 	if l := ctx.Query("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+		if v, convErr := strconv.Atoi(l); convErr == nil && v > 0 {
 			limit = v
 		}
 	}

@@ -61,11 +61,14 @@ func (r *MongoVisitRepository) FindByUser(ctx context.Context, userID uint, doma
 	if err != nil {
 		return nil, fmt.Errorf("finding web visits: %w", err)
 	}
-	defer cursor.Close(ctx)
-
 	var visits []model.WebVisit
-	if err := cursor.All(ctx, &visits); err != nil {
-		return nil, fmt.Errorf("decoding web visits: %w", err)
+	allErr := cursor.All(ctx, &visits)
+	closeErr := cursor.Close(ctx)
+	if allErr != nil {
+		return nil, fmt.Errorf("decoding web visits: %w", allErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("closing visits cursor: %w", closeErr)
 	}
 	return visits, nil
 }
@@ -97,11 +100,14 @@ func (r *MongoVisitRepository) StatsByUser(ctx context.Context, userID uint, fro
 	if err != nil {
 		return nil, fmt.Errorf("aggregating domain stats: %w", err)
 	}
-	defer cursor.Close(ctx)
-
 	var stats []dto.DomainStat
-	if err := cursor.All(ctx, &stats); err != nil {
-		return nil, fmt.Errorf("decoding domain stats: %w", err)
+	allErr := cursor.All(ctx, &stats)
+	closeErr := cursor.Close(ctx)
+	if allErr != nil {
+		return nil, fmt.Errorf("decoding domain stats: %w", allErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("closing stats cursor: %w", closeErr)
 	}
 	return stats, nil
 }
