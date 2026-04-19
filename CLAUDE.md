@@ -63,3 +63,18 @@ make code-check   # format + lint
 make db-up        # start dev databases only
 make db-remove    # wipe dev databases
 ```
+
+## Preflight
+
+**Ecosystem**: Go 1.26.2
+**Config**: go.mod, Makefile
+**Status**: ready
+
+| Category | Status | Command |
+|----------|--------|---------|
+| Build    | ready  | `go build ./...` |
+| Check    | ready  | `make code-check` |
+| Test     | ready  | `make test` |
+
+**Blockers**: none
+**Warnings**: none
