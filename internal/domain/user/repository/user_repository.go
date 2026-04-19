@@ -9,6 +9,7 @@ import (
 )
 
 var ErrUserNotFound = errors.New("user not found")
+var ErrUsernameTaken = errors.New("username already taken")
 
 type UserRepository interface {
 	Create(user *model.User) error
@@ -16,6 +17,8 @@ type UserRepository interface {
 	Update(user *model.User, updates map[string]interface{}) error
 	Delete(id uint) error
 	FindAll() ([]model.User, error)
+	FindByUsername(username string) (*model.User, error)
+	SearchByUsernamePrefix(prefix string, limit int) ([]model.User, error)
 }
 
 type GormUserRepository struct {
@@ -63,4 +66,25 @@ func (r *GormUserRepository) FindAll() ([]model.User, error) {
 		return nil, err
 	}
 	return users, nil
+}
+
+func (r *GormUserRepository) FindByUsername(username string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("LOWER(username) = LOWER(?) AND deleted_at IS NULL", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *GormUserRepository) SearchByUsernamePrefix(prefix string, limit int) ([]model.User, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	var users []model.User
+	err := r.db.Where("username ILIKE ? AND deleted_at IS NULL", prefix+"%").Limit(limit).Find(&users).Error
+	return users, err
 }

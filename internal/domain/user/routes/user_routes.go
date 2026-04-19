@@ -21,7 +21,8 @@ func RegisterUserRoutes(router *gin.RouterGroup, db *gorm.DB, imageClient *image
 		userGroup.DELETE("/me/image", userController.DeleteProfileImage)
 
 		userGroup.GET("", userController.GetAllUsers)
-		userGroup.GET("/:id", userController.GetUserByID)
+		userGroup.GET("/search", userController.SearchUsers)
+		userGroup.GET("/:param", userController.GetUserOrProfile)
 		userGroup.DELETE("/:id", userController.DeleteUser)
 	}
 }

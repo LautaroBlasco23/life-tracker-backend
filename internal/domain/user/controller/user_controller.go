@@ -189,6 +189,66 @@ func (c *UserController) UploadProfileImage(ctx *gin.Context) {
 	})
 }
 
+func (c *UserController) SearchUsers(ctx *gin.Context) {
+	var query dto.UserSearchQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters", "details": err.Error()})
+		return
+	}
+	limit := query.Limit
+	if limit == 0 {
+		limit = 25
+	}
+	users, err := c.userService.SearchUsers(query.Q, limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	cards := make([]dto.PublicUserCard, len(users))
+	for i := range users {
+		cards[i] = dto.PublicUserCard{
+			ID:                   users[i].ID,
+			FirstName:            users[i].FirstName,
+			LastName:             users[i].LastName,
+			Username:             users[i].Username,
+			ProfilePicURL:        users[i].ProfilePicURL,
+			ProfilePrivacyStatus: users[i].ProfilePrivacyStatus,
+			IsFollowing:          false,
+			FollowStatus:         "none",
+		}
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": cards, "count": len(cards)})
+}
+
+func (c *UserController) GetUserOrProfile(ctx *gin.Context) {
+	param := ctx.Param("param")
+	if id, err := strconv.ParseUint(param, 10, 32); err == nil {
+		user, err := c.userService.GetUserByID(uint(id))
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"message": "User retrieved successfully", "data": user})
+		return
+	}
+	user, err := c.userService.GetUserByUsername(param)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	card := dto.PublicUserCard{
+		ID:                   user.ID,
+		FirstName:            user.FirstName,
+		LastName:             user.LastName,
+		Username:             user.Username,
+		ProfilePicURL:        user.ProfilePicURL,
+		ProfilePrivacyStatus: user.ProfilePrivacyStatus,
+		IsFollowing:          false,
+		FollowStatus:         "none",
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": dto.PublicProfileResponse{PublicUserCard: card}})
+}
+
 func (c *UserController) DeleteProfileImage(ctx *gin.Context) {
 	userID, err := getUserID(ctx)
 	if err != nil {

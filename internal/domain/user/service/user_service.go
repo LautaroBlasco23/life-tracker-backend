@@ -7,10 +7,12 @@ import (
 	"io"
 	"mime/multipart"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"life-tracker-backend/internal/domain/user/dto"
+	"life-tracker-backend/internal/domain/user/model"
 	"life-tracker-backend/internal/domain/user/repository"
 	"life-tracker-backend/internal/infrastructure/imagestore"
 	"life-tracker-backend/internal/infrastructure/monitoring"
@@ -64,6 +66,13 @@ func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
 }
 
 func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
+	if req.Username != nil {
+		matched, _ := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
+		if !matched {
+			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
+		}
+	}
+
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
@@ -108,6 +117,12 @@ func buildUserUpdates(req *dto.UpdateUserRequest) map[string]interface{} {
 	}
 	if req.Timezone != nil {
 		updates["timezone"] = *req.Timezone
+	}
+	if req.Username != nil {
+		updates["username"] = strings.ToLower(*req.Username)
+	}
+	if req.ProfilePrivacyStatus != nil {
+		updates["profile_privacy_status"] = *req.ProfilePrivacyStatus
 	}
 	return updates
 }
@@ -244,6 +259,21 @@ func validateImageFile(file *multipart.FileHeader) error {
 	}
 
 	return nil
+}
+
+func (s *UserService) SearchUsers(prefix string, limit int) ([]model.User, error) {
+	return s.repo.SearchByUsernamePrefix(prefix, limit)
+}
+
+func (s *UserService) GetUserByUsername(username string) (*model.User, error) {
+	user, err := s.repo.FindByUsername(username)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to fetch user")
+	}
+	return user, nil
 }
 
 func extractImageIDFromURL(url string) string {
