@@ -143,25 +143,28 @@ func (s *RoutineService) UpdateRoutine(userID, routineID uint, req *dto.UpdateRo
 		updates["privacy_status"] = *req.PrivacyStatus
 	}
 	if len(updates) > 0 {
-		if err := s.repo.Update(routine, updates); err != nil {
+		if updateErr := s.repo.Update(routine, updates); updateErr != nil {
 			return nil, errors.New("failed to update routine")
 		}
 	}
 
 	if req.ActivityIDs != nil {
-		if err := s.validateActivitiesOwnership(userID, req.ActivityIDs); err != nil {
-			return nil, err
+		if validateErr := s.validateActivitiesOwnership(userID, req.ActivityIDs); validateErr != nil {
+			return nil, validateErr
 		}
 		items := make([]model.RoutineActivity, len(req.ActivityIDs))
 		for i, a := range req.ActivityIDs {
 			items[i] = model.RoutineActivity{RoutineID: routineID, ActivityID: a.ActivityID, Position: a.Position}
 		}
-		if err := s.repo.SetActivities(routineID, items); err != nil {
+		if setErr := s.repo.SetActivities(routineID, items); setErr != nil {
 			return nil, errors.New("failed to update activities")
 		}
 	}
 
-	updated, _ := s.repo.FindByID(routineID, userID)
+	updated, err := s.repo.FindByID(routineID, userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch updated routine")
+	}
 	return updated.ToResponse(s.fetchActivitiesForResponse(routineID)), nil
 }
 

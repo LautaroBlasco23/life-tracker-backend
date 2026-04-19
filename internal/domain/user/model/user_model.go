@@ -9,17 +9,17 @@ import (
 )
 
 type User struct {
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	ProfilePicURL *string        `json:"profilePicUrl,omitempty"`
-	ThumbnailURL  *string        `json:"thumbnailUrl,omitempty"`
+	CreatedAt            time.Time      `json:"createdAt"`
+	UpdatedAt            time.Time      `json:"updatedAt"`
+	ProfilePicURL        *string        `json:"profilePicUrl,omitempty"`
+	ThumbnailURL         *string        `json:"thumbnailUrl,omitempty"`
 	Timezone             *string        `json:"timezone,omitempty" gorm:"size:64"`
 	Username             *string        `json:"username,omitempty" gorm:"size:64;uniqueIndex"`
 	ProfilePrivacyStatus string         `json:"profilePrivacyStatus" gorm:"not null;default:'public';size:20"`
 	DeletedAt            gorm.DeletedAt `json:"-" gorm:"index"`
-	FirstName     string         `json:"firstName" gorm:"not null"`
-	LastName      string         `json:"lastName" gorm:"not null"`
-	ID            uint           `json:"id" gorm:"primaryKey"`
+	FirstName            string         `json:"firstName" gorm:"not null"`
+	LastName             string         `json:"lastName" gorm:"not null"`
+	ID                   uint           `json:"id" gorm:"primaryKey"`
 }
 
 func (u *User) ToResponse(email string) *dto.UserResponse {

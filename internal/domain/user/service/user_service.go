@@ -67,7 +67,10 @@ func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
 
 func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	if req.Username != nil {
-		matched, _ := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
+		matched, err := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
+		if err != nil {
+			return nil, errors.New("failed to validate username")
+		}
 		if !matched {
 			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
 		}

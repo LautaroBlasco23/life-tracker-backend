@@ -35,7 +35,7 @@ func (s *VisibilityService) CanViewProfile(viewerID, ownerID uint) (bool, error)
 	err := s.db.Where("follower_id = ? AND followee_id = ? AND status = ?",
 		viewerID, ownerID, model.FollowStatusAccepted).First(&follow).Error
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	return true, nil
 }

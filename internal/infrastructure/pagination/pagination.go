@@ -21,6 +21,7 @@ type Page[T any] struct {
 
 func ParseParams(ctx *gin.Context) Params {
 	var p Params
+	//nolint:errcheck // Intentionally ignoring binding error; defaults will be applied below
 	_ = ctx.ShouldBindQuery(&p)
 	if p.Limit <= 0 || p.Limit > 100 {
 		p.Limit = 25

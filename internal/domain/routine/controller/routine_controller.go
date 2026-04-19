@@ -39,8 +39,8 @@ func (c *RoutineController) CreateRoutine(ctx *gin.Context) {
 	}
 
 	var req dto.CreateRoutineRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+	if bindErr := ctx.ShouldBindJSON(&req); bindErr != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": bindErr.Error()})
 		return
 	}
 
@@ -105,8 +105,8 @@ func (c *RoutineController) UpdateRoutine(ctx *gin.Context) {
 	}
 
 	var req dto.UpdateRoutineRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+	if bindErr := ctx.ShouldBindJSON(&req); bindErr != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": bindErr.Error()})
 		return
 	}
 
