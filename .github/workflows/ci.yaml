@@ -105,15 +105,3 @@ jobs:
           name: endpoint-files
           path: endpoints/
           retention-days: 7
-
-  dispatch:
-    needs: build-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger infra redeploy
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.PAT }}
-          repository: LautaroBlasco23/life-tracker-infra
-          event-type: redeploy
-          client-payload: '{"source": "backend", "sha": "${{ github.sha }}"}'
