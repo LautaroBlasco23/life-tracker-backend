@@ -712,7 +712,9 @@ func TestActivityRecordRepository_DeleteLatestForDate(t *testing.T) {
 	})
 
 	t.Run("delete with no matching records", func(t *testing.T) {
-		// Try to delete again (only one record left for today, already deleted)
+		cleanDatabase(t) // Clean state - no records for this activity
+
+		// Try to delete when no records exist
 		err := tc.activityRecordRepo.DeleteLatestForDate(ctx, activityID, userID, startOfDay, endOfDay)
 		assert.ErrorIs(t, err, ErrActivityRecordNotFound)
 	})
@@ -755,7 +757,7 @@ func TestActivityRecordRepository_GetCompletionMetadata(t *testing.T) {
 
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
-	// Create records for today
+	// Create records for today (activity1)
 	for i := 0; i < 3; i++ {
 		record := model.ActivityRecord{
 			ActivityID:     activity1.ID,
@@ -766,7 +768,7 @@ func TestActivityRecordRepository_GetCompletionMetadata(t *testing.T) {
 		require.NoError(t, tc.activityRecordRepo.Create(ctx, &record))
 	}
 
-	// Create record for yesterday (not in today count)
+	// Create record for yesterday (activity2 - not in today count, but in monthly)
 	yesterdayRecord := model.ActivityRecord{
 		ActivityID:     activity2.ID,
 		UserID:         userID,
@@ -775,7 +777,9 @@ func TestActivityRecordRepository_GetCompletionMetadata(t *testing.T) {
 	}
 	require.NoError(t, tc.activityRecordRepo.Create(ctx, &yesterdayRecord))
 
-	// Create record for last month (not in monthly completions)
+	// Create record for last month (activity1 - this makes latest completion last month)
+	// But wait, the 3 today records have LATER timestamps, so they will be the latest
+	// This test data is contradictory. We need to fix the test expectation instead.
 	lastMonth := startOfDay.AddDate(0, -1, 0)
 	lastMonthRecord := model.ActivityRecord{
 		ActivityID:     activity1.ID,
@@ -801,11 +805,11 @@ func TestActivityRecordRepository_GetCompletionMetadata(t *testing.T) {
 		assert.NotZero(t, metadata.OneTimeCompletions[activity1.ID])
 		assert.NotZero(t, metadata.OneTimeCompletions[activity2.ID])
 
-		// Only activity2 has a monthly completion (activity1's last completion was last month)
+		// Both activities have monthly completions (activity1 has 3 today, activity2 has yesterday)
 		_, hasMonthly1 := metadata.MonthlyCompletions[activity1.ID]
 		_, hasMonthly2 := metadata.MonthlyCompletions[activity2.ID]
-		assert.False(t, hasMonthly1, "Activity 1 should not have monthly completion")
-		assert.True(t, hasMonthly2, "Activity 2 should have monthly completion")
+		assert.True(t, hasMonthly1, "Activity 1 should have monthly completion (3 completions today)")
+		assert.True(t, hasMonthly2, "Activity 2 should have monthly completion (completion yesterday)")
 	})
 
 	t.Run("get metadata for non-existent activities", func(t *testing.T) {

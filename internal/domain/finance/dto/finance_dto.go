@@ -48,6 +48,7 @@ type FixedTransactionResponse struct {
 	UpdatedAt            time.Time        `json:"updatedAt"`
 	ID                   string           `json:"id"`
 	Type                 string           `json:"type"`
+	Frequency            string           `json:"frequency"`
 	PaymentFrequency     string           `json:"paymentFrequency"`
 	CategoryName         string           `json:"categoryName"`
 	Description          string           `json:"description,omitempty"`

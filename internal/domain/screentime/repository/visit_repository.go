@@ -100,7 +100,7 @@ func (r *MongoVisitRepository) StatsByUser(ctx context.Context, userID uint, fro
 	if err != nil {
 		return nil, fmt.Errorf("aggregating domain stats: %w", err)
 	}
-	var stats []dto.DomainStat
+	stats := []dto.DomainStat{}
 	allErr := cursor.All(ctx, &stats)
 	closeErr := cursor.Close(ctx)
 	if allErr != nil {

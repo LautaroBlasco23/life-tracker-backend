@@ -56,5 +56,8 @@ func (s *VisitService) GetStats(userID uint, from, to *time.Time) ([]dto.DomainS
 	if err != nil {
 		return nil, fmt.Errorf("getting stats: %w", err)
 	}
+	if stats == nil {
+		return []dto.DomainStat{}, nil
+	}
 	return stats, nil
 }

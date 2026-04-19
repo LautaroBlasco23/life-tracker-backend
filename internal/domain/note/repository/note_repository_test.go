@@ -3,7 +3,8 @@
 // Subject:      internal/domain/note/repository.NoteRepository against real PostgreSQL.
 // Scope:        CRUD operations — create, read with filters, update, hard-delete.
 // Out of scope: Service-layer rules → note_service_test.go (integration)
-//               HTTP contract       → note_controller_test.go
+//
+//	HTTP contract       → note_controller_test.go
 //
 // Infrastructure: PostgreSQL (test database via .env.test).
 // Data strategy:  TRUNCATE notes before each top-level test function.

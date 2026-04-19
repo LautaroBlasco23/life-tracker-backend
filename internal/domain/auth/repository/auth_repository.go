@@ -74,6 +74,12 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 func (r *GormUserRepository) Create(user *userModel.User) error {
+	if user.FirstName == "" {
+		return errors.New("first name is required")
+	}
+	if user.LastName == "" {
+		return errors.New("last name is required")
+	}
 	return r.db.Create(user).Error
 }
 

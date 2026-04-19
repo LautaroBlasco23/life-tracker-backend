@@ -94,8 +94,14 @@ func NewTransactionRepository(db *mongo.Database) TransactionRepository {
 }
 
 func (r *MongoTransactionRepository) Create(ctx context.Context, transaction *model.Transaction) error {
-	_, err := r.collection.InsertOne(ctx, transaction)
-	return err
+	result, err := r.collection.InsertOne(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		transaction.ID = oid
+	}
+	return nil
 }
 
 func (r *MongoTransactionRepository) FindByID(ctx context.Context, id primitive.ObjectID, userID uint) (*model.Transaction, error) {
@@ -335,8 +341,14 @@ func NewPaymentRepository(db *mongo.Database) PaymentRepository {
 }
 
 func (r *MongoPaymentRepository) Create(ctx context.Context, payment *model.Payment) error {
-	_, err := r.collection.InsertOne(ctx, payment)
-	return err
+	result, err := r.collection.InsertOne(ctx, payment)
+	if err != nil {
+		return err
+	}
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		payment.ID = oid
+	}
+	return nil
 }
 
 func (r *MongoPaymentRepository) FindByID(ctx context.Context, id primitive.ObjectID, userID uint) (*model.Payment, error) {

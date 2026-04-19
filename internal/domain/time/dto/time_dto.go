@@ -33,8 +33,8 @@ type TimeRecordFilter struct {
 
 type TimeStatsResponse struct {
 	CategoryTotals  map[string]int `json:"categoryTotals"`
-	TopCategory     string         `json:"topCategory,omitempty"`
+	TopCategory     string         `json:"topCategory"`
 	TotalMinutes    int            `json:"totalMinutes"`
 	RecordCount     int            `json:"recordCount"`
-	TopCategoryMins int            `json:"topCategoryMinutes,omitempty"`
+	TopCategoryMins int            `json:"topCategoryMinutes"`
 }

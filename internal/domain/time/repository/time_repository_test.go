@@ -189,6 +189,8 @@ func TestTimeRecordRepository_FindByUserID(t *testing.T) {
 	})
 
 	t.Run("with Category filter", func(t *testing.T) {
+		cleanDatabase(t) // Ensure clean state for this subtest
+
 		createTestTimeRecord(t, repo, 1, "Work", 60, "Work task")
 		createTestTimeRecord(t, repo, 1, "Exercise", 30, "Exercise task")
 		createTestTimeRecord(t, repo, 1, "Work", 90, "Another work task")
@@ -206,6 +208,8 @@ func TestTimeRecordRepository_FindByUserID(t *testing.T) {
 	})
 
 	t.Run("with date range filter", func(t *testing.T) {
+		cleanDatabase(t) // Ensure clean state for this subtest
+
 		// Create records at specific times
 		now := time.Now().UTC()
 
@@ -245,6 +249,8 @@ func TestTimeRecordRepository_FindByUserID(t *testing.T) {
 	})
 
 	t.Run("with combined filters", func(t *testing.T) {
+		cleanDatabase(t) // Ensure clean state for this subtest
+
 		now := time.Now().UTC()
 
 		// Create Work record in the past
@@ -315,9 +321,9 @@ func TestTimeRecordRepository_Update(t *testing.T) {
 		created := createTestTimeRecord(t, repo, 1, "Work", 60, "Original description")
 
 		updates := map[string]interface{}{
-			"category":        "Exercise",
+			"category":         "Exercise",
 			"duration_minutes": 90,
-			"description":     "Updated description",
+			"description":      "Updated description",
 		}
 
 		err := repo.Update(created, updates)
@@ -346,7 +352,7 @@ func TestTimeRecordRepository_Update(t *testing.T) {
 		updated, err := repo.FindByID(created.ID, 1)
 		require.NoError(t, err)
 		assert.Equal(t, 120, updated.DurationMinutes)
-		assert.Equal(t, "Work", updated.Category) // Unchanged
+		assert.Equal(t, "Work", updated.Category)           // Unchanged
 		assert.Equal(t, "Description", updated.Description) // Unchanged
 	})
 }

@@ -59,7 +59,7 @@ func (r *GormUserRepository) Delete(id uint) error {
 
 func (r *GormUserRepository) FindAll() ([]model.User, error) {
 	var users []model.User
-	if err := r.db.Find(&users).Error; err != nil {
+	if err := r.db.Where("deleted_at IS NULL").Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil

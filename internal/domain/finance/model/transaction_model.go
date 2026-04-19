@@ -46,6 +46,7 @@ func (t *Transaction) ToFixedResponse(totalPaid float64, payments []dto.PaymentS
 	return &dto.FixedTransactionResponse{
 		ID:                   t.ID.Hex(),
 		Type:                 string(t.Type),
+		Frequency:            string(t.Frequency),
 		PaymentFrequency:     string(t.PaymentFrequency),
 		CategoryName:         t.Category,
 		Description:          t.Description,

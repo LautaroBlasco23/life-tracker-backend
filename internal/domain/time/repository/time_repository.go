@@ -113,6 +113,22 @@ func BuildTimeRecordFilter(dtoFilter *dto.TimeRecordFilter, loc *time.Location) 
 }
 
 func calculateDateRange(filter *dto.TimeRecordFilter, loc *time.Location) (*time.Time, *time.Time) {
+	// Explicit date range takes precedence over Month/Year
+	if filter.StartDate != nil || filter.EndDate != nil {
+		var effectiveStart, effectiveEnd *time.Time
+		if filter.StartDate != nil {
+			// Truncate to midnight in the specified location
+			start := time.Date(filter.StartDate.Year(), filter.StartDate.Month(), filter.StartDate.Day(), 0, 0, 0, 0, loc)
+			effectiveStart = &start
+		}
+		if filter.EndDate != nil {
+			// Set to end of day in the specified location
+			end := time.Date(filter.EndDate.Year(), filter.EndDate.Month(), filter.EndDate.Day(), 23, 59, 59, 999999999, loc)
+			effectiveEnd = &end
+		}
+		return effectiveStart, effectiveEnd
+	}
+
 	if filter.Month != nil && filter.Year != nil {
 		start := time.Date(*filter.Year, time.Month(*filter.Month), 1, 0, 0, 0, 0, loc)
 		end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
@@ -130,19 +146,6 @@ func calculateDateRange(filter *dto.TimeRecordFilter, loc *time.Location) (*time
 		start := time.Date(*filter.Year, 1, 1, 0, 0, 0, 0, loc)
 		end := time.Date(*filter.Year, 12, 31, 23, 59, 59, 999999999, loc)
 		return &start, &end
-	}
-
-	if filter.StartDate != nil || filter.EndDate != nil {
-		var effectiveStart, effectiveEnd *time.Time
-		if filter.StartDate != nil {
-			start := time.Date(filter.StartDate.Year(), filter.StartDate.Month(), filter.StartDate.Day(), 0, 0, 0, 0, loc)
-			effectiveStart = &start
-		}
-		if filter.EndDate != nil {
-			end := time.Date(filter.EndDate.Year(), filter.EndDate.Month(), filter.EndDate.Day(), 23, 59, 59, 999999999, loc)
-			effectiveEnd = &end
-		}
-		return effectiveStart, effectiveEnd
 	}
 
 	return nil, nil

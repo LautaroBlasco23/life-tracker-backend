@@ -10,6 +10,7 @@ import (
 	"life-tracker-backend/internal/domain/activity/model"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/gorm"
@@ -134,8 +135,14 @@ func NewActivityRecordRepository(db *mongo.Database) ActivityRecordRepository {
 }
 
 func (r *MongoActivityRecordRepository) Create(ctx context.Context, record *model.ActivityRecord) error {
-	_, err := r.collection.InsertOne(ctx, record)
-	return err
+	result, err := r.collection.InsertOne(ctx, record)
+	if err != nil {
+		return err
+	}
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		record.ID = oid
+	}
+	return nil
 }
 
 func (r *MongoActivityRecordRepository) FindByActivityID(ctx context.Context, activityID, userID uint, limit int) ([]model.ActivityRecord, error) {
@@ -213,13 +220,15 @@ func (r *MongoActivityRecordRepository) GetCompletionMetadata(ctx context.Contex
 			"$group": bson.M{
 				"_id":              "$activityId",
 				"latestCompletion": bson.M{"$first": "$completionDate"},
-				"monthlyCompletion": bson.M{"$first": bson.M{
-					"$cond": bson.A{
-						bson.M{"$gte": bson.A{"$completionDate", startOfMonth.UTC()}},
-						"$completionDate",
-						nil,
+				"monthlyCompletions": bson.M{
+					"$push": bson.M{
+						"$cond": bson.A{
+							bson.M{"$gte": bson.A{"$completionDate", startOfMonth.UTC()}},
+							"$completionDate",
+							nil,
+						},
 					},
-				}},
+				},
 				"todayCount": bson.M{
 					"$sum": bson.M{
 						"$cond": bson.A{
@@ -255,18 +264,22 @@ func (r *MongoActivityRecordRepository) GetCompletionMetadata(ctx context.Contex
 
 	for cursor.Next(ctx) {
 		var result struct {
-			LatestCompletion  time.Time  `bson:"latestCompletion"`
-			MonthlyCompletion *time.Time `bson:"monthlyCompletion"`
-			ID                uint       `bson:"_id"`
-			TodayCount        int        `bson:"todayCount"`
+			LatestCompletion     time.Time   `bson:"latestCompletion"`
+			MonthlyCompletions   []time.Time `bson:"monthlyCompletions"`
+			ID                   uint        `bson:"_id"`
+			TodayCount           int         `bson:"todayCount"`
 		}
 		if err := cursor.Decode(&result); err != nil {
 			continue
 		}
 
 		metadata.OneTimeCompletions[result.ID] = result.LatestCompletion
-		if result.MonthlyCompletion != nil {
-			metadata.MonthlyCompletions[result.ID] = *result.MonthlyCompletion
+		// Check if any monthly completion is valid (non-zero time)
+		for _, mc := range result.MonthlyCompletions {
+			if !mc.IsZero() {
+				metadata.MonthlyCompletions[result.ID] = mc
+				break
+			}
 		}
 		metadata.TodayCompletions[result.ID] = result.TodayCount
 	}

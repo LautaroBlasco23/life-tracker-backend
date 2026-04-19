@@ -338,6 +338,8 @@ func TestUserRepository_FindAll(t *testing.T) {
 	})
 
 	t.Run("find all excludes soft-deleted users", func(t *testing.T) {
+		cleanDatabase(t) // Ensure clean state for this subtest
+
 		user1 := &model.User{FirstName: "Keep", LastName: "Me"}
 		user2 := &model.User{FirstName: "Delete", LastName: "Me"}
 
@@ -356,7 +358,8 @@ func TestUserRepository_FindAll(t *testing.T) {
 	})
 
 	t.Run("find all returns empty slice when no users", func(t *testing.T) {
-		// Database is already clean from getTestRepository
+		cleanDatabase(t) // Ensure clean state for this subtest
+
 		users, err := repo.FindAll()
 
 		assert.NoError(t, err)
@@ -365,6 +368,8 @@ func TestUserRepository_FindAll(t *testing.T) {
 	})
 
 	t.Run("find all returns empty slice when all users deleted", func(t *testing.T) {
+		cleanDatabase(t) // Ensure clean state for this subtest
+
 		user := &model.User{FirstName: "Gone", LastName: "Soon"}
 		require.NoError(t, repo.Create(user))
 
