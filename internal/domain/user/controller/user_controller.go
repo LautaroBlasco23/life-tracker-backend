@@ -221,7 +221,7 @@ func (c *UserController) SearchUsers(ctx *gin.Context) {
 }
 
 func (c *UserController) GetUserOrProfile(ctx *gin.Context) {
-	param := ctx.Param("param")
+	param := ctx.Param("username")
 	if id, err := strconv.ParseUint(param, 10, 32); err == nil {
 		user, err := c.userService.GetUserByID(uint(id))
 		if err != nil {

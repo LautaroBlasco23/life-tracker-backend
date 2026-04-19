@@ -117,6 +117,9 @@ func run() error {
 		protected.Use(middleware.JWTAuthMiddleware(cfg.JWTSecret))
 		{
 			authRoutes.RegisterProtectedAuthRoutes(protected, dbs.PostgreSQL, cfg, imageClient)
+			// Register social routes BEFORE user routes to avoid path conflicts
+			// Social has /users/:username/followers which is more specific than user's /users/:param
+			socialRoutes.RegisterSocialRoutes(protected, dbs.PostgreSQL)
 			userRoutes.RegisterUserRoutes(protected, dbs.PostgreSQL, imageClient)
 			activityRoutes.RegisterActivityRoutes(protected, dbs.PostgreSQL, dbs.MongoDB)
 			financeRoutes.RegisterFinanceRoutes(protected, dbs.MongoDB)
@@ -124,7 +127,6 @@ func run() error {
 			timeRoutes.RegisterTimeRoutes(protected, dbs.PostgreSQL)
 			noteRoutes.RegisterNoteRoutes(protected, dbs.PostgreSQL)
 			routineRoutes.RegisterRoutineRoutes(protected, dbs.PostgreSQL)
-			socialRoutes.RegisterSocialRoutes(protected, dbs.PostgreSQL)
 		}
 	}
 

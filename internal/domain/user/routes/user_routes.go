@@ -22,7 +22,7 @@ func RegisterUserRoutes(router *gin.RouterGroup, db *gorm.DB, imageClient *image
 
 		userGroup.GET("", userController.GetAllUsers)
 		userGroup.GET("/search", userController.SearchUsers)
-		userGroup.GET("/:param", userController.GetUserOrProfile)
+		userGroup.GET("/:username", userController.GetUserOrProfile)
 		userGroup.DELETE("/:id", userController.DeleteUser)
 	}
 }
