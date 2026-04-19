@@ -42,7 +42,7 @@ Built with clean architecture, JWT authentication, and observability support.
   - Clean / DDD-inspired architecture
   - Modular domain separation
   - Input validation and security best practices
-  - Tests included in each module
+  - Integration tests for service layer across all domains
 
 ---
 
@@ -192,15 +192,36 @@ This will:
 - Launch the application with hot-reload via Air
 
 ### Testing
-Run tests with isolated test database:
+
+Tests are integration tests that run against real PostgreSQL and MongoDB instances.  
+Each domain's service layer is fully covered.
+
+| Domain    | Layer tested | Database       |
+|-----------|-------------|----------------|
+| auth      | service     | PostgreSQL     |
+| user      | service     | PostgreSQL     |
+| activity  | service     | PostgreSQL + MongoDB |
+| finance   | service     | MongoDB        |
+| note      | service     | PostgreSQL     |
+| time      | service     | PostgreSQL     |
+| screentime | integration | PostgreSQL + MongoDB |
+
+**Prerequisites:**
+- `.env.test` file (copy `.env.example` and point to test databases)
+- Docker & Docker Compose (for managed test databases)
+- `gotestsum` (`go install gotest.tools/gotestsum@latest`)
+
+Run with managed test databases (starts containers, runs tests, stops containers):
 ```bash
 make test
 ```
 
-Or run tests without managing the database:
+Run against already-running test databases:
 ```bash
 make test-only
 ```
+
+Tests run sequentially (`-p 1`) with the race detector enabled.
 
 ### Code Quality
 Format and lint code:
