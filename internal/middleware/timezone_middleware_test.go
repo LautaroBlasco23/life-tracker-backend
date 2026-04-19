@@ -37,7 +37,7 @@ func TestTimezoneMiddleware_ValidTimezone(t *testing.T) {
 	loc, exists := c.Get(TimezoneContextKey)
 	assert.True(t, exists)
 	assert.NotNil(t, loc)
-	
+
 	location, ok := loc.(*time.Location)
 	assert.True(t, ok)
 	assert.Equal(t, "America/New_York", location.String())
@@ -58,7 +58,7 @@ func TestTimezoneMiddleware_MissingHeader(t *testing.T) {
 
 	loc, exists := c.Get(TimezoneContextKey)
 	assert.True(t, exists)
-	
+
 	location, ok := loc.(*time.Location)
 	assert.True(t, ok)
 	assert.Equal(t, time.UTC, location)
@@ -79,7 +79,7 @@ func TestTimezoneMiddleware_InvalidTimezone(t *testing.T) {
 
 	loc, exists := c.Get(TimezoneContextKey)
 	assert.True(t, exists)
-	
+
 	location, ok := loc.(*time.Location)
 	assert.True(t, ok)
 	assert.Equal(t, time.UTC, location)
@@ -100,7 +100,7 @@ func TestTimezoneMiddleware_EmptyHeader(t *testing.T) {
 
 	loc, exists := c.Get(TimezoneContextKey)
 	assert.True(t, exists)
-	
+
 	location, ok := loc.(*time.Location)
 	assert.True(t, ok)
 	assert.Equal(t, time.UTC, location)
