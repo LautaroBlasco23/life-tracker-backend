@@ -346,7 +346,7 @@ func (c *FinanceController) GetPayments(ctx *gin.Context) {
 	var transactionID *string
 	if tid := ctx.Query("transaction_id"); tid != "" {
 		// Validate transaction ID format before passing to service
-		if _, err := primitive.ObjectIDFromHex(tid); err != nil {
+		if _, idErr := primitive.ObjectIDFromHex(tid); idErr != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction_id format"})
 			return
 		}
