@@ -264,10 +264,10 @@ func (r *MongoActivityRecordRepository) GetCompletionMetadata(ctx context.Contex
 
 	for cursor.Next(ctx) {
 		var result struct {
-			LatestCompletion     time.Time   `bson:"latestCompletion"`
-			MonthlyCompletions   []time.Time `bson:"monthlyCompletions"`
-			ID                   uint        `bson:"_id"`
-			TodayCount           int         `bson:"todayCount"`
+			LatestCompletion   time.Time   `bson:"latestCompletion"`
+			MonthlyCompletions []time.Time `bson:"monthlyCompletions"`
+			ID                 uint        `bson:"_id"`
+			TodayCount         int         `bson:"todayCount"`
 		}
 		if err := cursor.Decode(&result); err != nil {
 			continue
