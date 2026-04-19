@@ -90,3 +90,6 @@ results.json
 summary.json
 k6-report.html
 *.har
+
+# Local docs (planning, research, agent artifacts)
+.docs/
