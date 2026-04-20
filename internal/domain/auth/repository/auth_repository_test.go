@@ -324,8 +324,6 @@ func TestUserRepository_Create(t *testing.T) {
 
 		assert.Error(t, err)
 	})
-
-
 }
 
 func TestUserRepository_FindByID(t *testing.T) {

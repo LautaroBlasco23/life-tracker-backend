@@ -8,9 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrUserNotFound = errors.New("user not found")
-)
+var ErrUserNotFound = errors.New("user not found")
 
 type UserRepository interface {
 	Create(user *model.User) error

@@ -84,29 +84,8 @@ func (s *UserService) UpdateProfile(userID uint, email string, username string, 
 		return nil, errors.New("failed to fetch user")
 	}
 
-	// Validate username format and uniqueness if being updated
-	if req.Username != nil && *req.Username != username {
-		// Validate username format (lowercase letters, digits, underscores only)
-		matched, regexErr := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
-		if regexErr != nil {
-			return nil, errors.New("failed to validate username")
-		}
-		if !matched {
-			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
-		}
-
-		exists, existsErr := s.authRepo.UsernameExists(*req.Username)
-		if existsErr != nil {
-			return nil, errors.New("failed to check username availability")
-		}
-		if exists {
-			return nil, authRepository.ErrUsernameTaken
-		}
-
-		// Update username in auth table
-		if err := s.authRepo.UpdateUsername(userID, strings.ToLower(*req.Username)); err != nil {
-			return nil, errors.New("failed to update username")
-		}
+	if updateErr := s.handleUsernameUpdate(userID, username, req); updateErr != nil {
+		return nil, updateErr
 	}
 
 	updates := buildUserUpdates(req)
@@ -126,12 +105,57 @@ func (s *UserService) UpdateProfile(userID uint, email string, username string, 
 		}
 	}
 
-	user, err = s.repo.FindByID(userID)
+	return s.fetchUpdatedUserResponse(userID, email)
+}
+
+func (s *UserService) handleUsernameUpdate(userID uint, currentUsername string, req *dto.UpdateUserRequest) error {
+	if req.Username == nil || *req.Username == currentUsername {
+		return nil
+	}
+
+	if err := s.validateUsernameFormat(*req.Username); err != nil {
+		return err
+	}
+
+	if err := s.checkUsernameAvailability(*req.Username); err != nil {
+		return err
+	}
+
+	if err := s.authRepo.UpdateUsername(userID, strings.ToLower(*req.Username)); err != nil {
+		return errors.New("failed to update username")
+	}
+
+	return nil
+}
+
+func (s *UserService) validateUsernameFormat(username string) error {
+	matched, err := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(username))
+	if err != nil {
+		return errors.New("failed to validate username")
+	}
+	if !matched {
+		return errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
+	}
+	return nil
+}
+
+func (s *UserService) checkUsernameAvailability(username string) error {
+	exists, err := s.authRepo.UsernameExists(username)
+	if err != nil {
+		return errors.New("failed to check username availability")
+	}
+	if exists {
+		return authRepository.ErrUsernameTaken
+	}
+	return nil
+}
+
+func (s *UserService) fetchUpdatedUserResponse(userID uint, email string) (*dto.UserResponse, error) {
+	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		return nil, errors.New("failed to fetch updated user")
 	}
 
-	// Get updated username
 	auth, err := s.authRepo.FindByUserID(userID)
 	if err != nil {
 		return nil, errors.New("failed to fetch user auth")

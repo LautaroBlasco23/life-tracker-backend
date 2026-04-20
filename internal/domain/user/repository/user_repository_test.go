@@ -136,8 +136,6 @@ func TestUserRepository_Create(t *testing.T) {
 		assert.Equal(t, &thumbnail, found.ThumbnailURL)
 		assert.Equal(t, &timezone, found.Timezone)
 	})
-
-
 }
 
 // UserRepository_FindByID tests the FindByID method of the UserRepository.
