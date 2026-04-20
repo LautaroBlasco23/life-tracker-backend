@@ -22,6 +22,7 @@ type UserRepository interface {
 	FindByUsername(username string) (*model.User, error)
 	SearchByUsernamePrefix(prefix string, limit int) ([]model.User, error)
 	UsernameExists(username string) (bool, error)
+	EmailExists(email string) (bool, error)
 }
 
 type GormUserRepository struct {
@@ -98,6 +99,18 @@ func (r *GormUserRepository) SearchByUsernamePrefix(prefix string, limit int) ([
 func (r *GormUserRepository) UsernameExists(username string) (bool, error) {
 	var user model.User
 	err := r.db.Where("LOWER(username) = LOWER(?)", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *GormUserRepository) EmailExists(email string) (bool, error) {
+	var user model.User
+	err := r.db.Where("LOWER(email) = LOWER(?)", email).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil

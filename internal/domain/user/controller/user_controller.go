@@ -282,3 +282,22 @@ func (c *UserController) CheckUsernameAvailability(ctx *gin.Context) {
 		"username":  username,
 	})
 }
+
+func (c *UserController) CheckEmailAvailability(ctx *gin.Context) {
+	email := ctx.Query("email")
+	if email == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "email query parameter is required"})
+		return
+	}
+
+	exists, err := c.userService.EmailExists(email)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check email availability"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"available": !exists,
+		"email":     email,
+	})
+}

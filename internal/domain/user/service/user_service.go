@@ -77,16 +77,16 @@ func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUs
 	// Validate username format and uniqueness if being updated
 	if req.Username != nil && *req.Username != user.Username {
 		// Validate username format (lowercase letters, digits, underscores only)
-		matched, err := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
-		if err != nil {
+		matched, regexErr := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
+		if regexErr != nil {
 			return nil, errors.New("failed to validate username")
 		}
 		if !matched {
 			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
 		}
 
-		exists, err := s.repo.UsernameExists(*req.Username)
-		if err != nil {
+		exists, existsErr := s.repo.UsernameExists(*req.Username)
+		if existsErr != nil {
 			return nil, errors.New("failed to check username availability")
 		}
 		if exists {
@@ -291,6 +291,10 @@ func (s *UserService) GetUserByUsername(username string) (*model.User, error) {
 
 func (s *UserService) UsernameExists(username string) (bool, error) {
 	return s.repo.UsernameExists(username)
+}
+
+func (s *UserService) EmailExists(email string) (bool, error) {
+	return s.repo.EmailExists(email)
 }
 
 func extractImageIDFromURL(url string) string {

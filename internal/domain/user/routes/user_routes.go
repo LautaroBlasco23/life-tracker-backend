@@ -34,5 +34,6 @@ func RegisterPublicUserRoutes(router *gin.RouterGroup, db *gorm.DB, imageClient 
 	userGroup := router.Group("/users")
 	{
 		userGroup.GET("/check-username", userController.CheckUsernameAvailability)
+		userGroup.GET("/check-email", userController.CheckEmailAvailability)
 	}
 }
