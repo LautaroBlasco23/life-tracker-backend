@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"life-tracker-backend/internal/config"
+	authModel "life-tracker-backend/internal/domain/auth/model"
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/model"
 
@@ -46,7 +47,7 @@ func setupTestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		sqlDB.SetMaxOpenConns(1)
 
-		require.NoError(t, db.AutoMigrate(&model.User{}))
+		require.NoError(t, db.AutoMigrate(&model.User{}, &authModel.Auth{}))
 		testDB = db
 	}
 }
@@ -54,6 +55,7 @@ func setupTestDatabase(t *testing.T) {
 func cleanDatabase(t *testing.T) {
 	t.Helper()
 	require.NoError(t, testDB.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE;").Error)
+	require.NoError(t, testDB.Exec("TRUNCATE TABLE auths RESTART IDENTITY CASCADE;").Error)
 }
 
 func getTestService(t *testing.T) *UserService {
@@ -66,11 +68,21 @@ func createTestUser(t *testing.T, service *UserService) uint {
 	user := &model.User{
 		FirstName: "Test",
 		LastName:  "User",
-		Username:  fmt.Sprintf("testuser%d", time.Now().UnixNano()),
 	}
 	err := testDB.Create(user).Error
 	require.NoError(t, err)
 	return user.ID
+}
+
+// createTestAuth creates an auth record in the database.
+func createTestAuth(t *testing.T, userID uint, email, username string) {
+	auth := &authModel.Auth{
+		UserID:   userID,
+		Email:    email,
+		Username: username,
+	}
+	err := testDB.Create(auth).Error
+	require.NoError(t, err)
 }
 
 func TestUserService_GetMyProfile(t *testing.T) {
@@ -79,6 +91,7 @@ func TestUserService_GetMyProfile(t *testing.T) {
 	t.Run("get existing user profile", func(t *testing.T) {
 		userID := createTestUser(t, service)
 		email := "test@example.com"
+		createTestAuth(t, userID, email, "testuser")
 
 		profile, err := service.GetMyProfile(userID, email)
 
@@ -88,6 +101,7 @@ func TestUserService_GetMyProfile(t *testing.T) {
 		assert.Equal(t, "Test", profile.FirstName)
 		assert.Equal(t, "User", profile.LastName)
 		assert.Equal(t, email, profile.Email)
+		assert.Equal(t, "testuser", profile.Username)
 	})
 
 	t.Run("user not found", func(t *testing.T) {
@@ -104,6 +118,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 
 	t.Run("get existing user by id", func(t *testing.T) {
 		userID := createTestUser(t, service)
+		createTestAuth(t, userID, "user@example.com", "myuser")
 
 		user, err := service.GetUserByID(userID)
 
@@ -111,7 +126,8 @@ func TestUserService_GetUserByID(t *testing.T) {
 		assert.NotNil(t, user)
 		assert.Equal(t, userID, user.ID)
 		assert.Equal(t, "Test", user.FirstName)
-		assert.Empty(t, user.Email)
+		assert.Equal(t, "user@example.com", user.Email)
+		assert.Equal(t, "myuser", user.Username)
 	})
 
 	t.Run("user not found", func(t *testing.T) {
@@ -132,7 +148,6 @@ func TestUserService_GetUserTimezone(t *testing.T) {
 			FirstName: "Test",
 			LastName:  "User",
 			Timezone:  &tz,
-			Username:  fmt.Sprintf("tzuser%d", time.Now().UnixNano()),
 		}
 		err := testDB.Create(user).Error
 		require.NoError(t, err)
@@ -165,7 +180,6 @@ func TestUserService_GetUserTimezone(t *testing.T) {
 			FirstName: "Test",
 			LastName:  "User",
 			Timezone:  &invalidTZ,
-			Username:  fmt.Sprintf("badtzuser%d", time.Now().UnixNano()),
 		}
 		err := testDB.Create(user).Error
 		require.NoError(t, err)
@@ -183,6 +197,8 @@ func TestUserService_UpdateProfile(t *testing.T) {
 	t.Run("update first name and last name", func(t *testing.T) {
 		userID := createTestUser(t, service)
 		email := "test@example.com"
+		username := "testuser"
+		createTestAuth(t, userID, email, username)
 
 		newFirstName := "Updated"
 		newLastName := "Name"
@@ -191,7 +207,7 @@ func TestUserService_UpdateProfile(t *testing.T) {
 			LastName:  &newLastName,
 		}
 
-		profile, err := service.UpdateProfile(userID, email, req)
+		profile, err := service.UpdateProfile(userID, email, username, req)
 
 		assert.NoError(t, err)
 		assert.Equal(t, "Updated", profile.FirstName)
@@ -206,14 +222,16 @@ func TestUserService_UpdateProfile(t *testing.T) {
 
 	t.Run("update timezone", func(t *testing.T) {
 		userID := createTestUser(t, service)
-		email := "test@example.com"
+		email := "timezone@example.com"
+		username := "timezoneuser"
+		createTestAuth(t, userID, email, username)
 
 		timezone := "Europe/London"
 		req := &dto.UpdateUserRequest{
 			Timezone: &timezone,
 		}
 
-		profile, err := service.UpdateProfile(userID, email, req)
+		profile, err := service.UpdateProfile(userID, email, username, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, profile.Timezone)
@@ -222,14 +240,16 @@ func TestUserService_UpdateProfile(t *testing.T) {
 
 	t.Run("invalid timezone", func(t *testing.T) {
 		userID := createTestUser(t, service)
-		email := "test@example.com"
+		email := "badtz@example.com"
+		username := "badtzuser"
+		createTestAuth(t, userID, email, username)
 
 		invalidTZ := "Invalid/Zone"
 		req := &dto.UpdateUserRequest{
 			Timezone: &invalidTZ,
 		}
 
-		profile, err := service.UpdateProfile(userID, email, req)
+		profile, err := service.UpdateProfile(userID, email, username, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, profile)
@@ -238,11 +258,13 @@ func TestUserService_UpdateProfile(t *testing.T) {
 
 	t.Run("empty update returns unchanged profile", func(t *testing.T) {
 		userID := createTestUser(t, service)
-		email := "test@example.com"
+		email := "empty@example.com"
+		username := "emptyuser"
+		createTestAuth(t, userID, email, username)
 
 		req := &dto.UpdateUserRequest{}
 
-		profile, err := service.UpdateProfile(userID, email, req)
+		profile, err := service.UpdateProfile(userID, email, username, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, profile)
@@ -255,7 +277,7 @@ func TestUserService_UpdateProfile(t *testing.T) {
 			FirstName: &newFirstName,
 		}
 
-		profile, err := service.UpdateProfile(9999, "test@example.com", req)
+		profile, err := service.UpdateProfile(9999, "test@example.com", "testuser", req)
 
 		assert.Error(t, err)
 		assert.Nil(t, profile)
@@ -271,10 +293,11 @@ func TestUserService_GetAllUsers(t *testing.T) {
 			user := &model.User{
 				FirstName: fmt.Sprintf("User%d", i),
 				LastName:  "Test",
-				Username:  fmt.Sprintf("alluser%d%d", i, time.Now().UnixNano()),
 			}
 			err := testDB.Create(user).Error
 			require.NoError(t, err)
+			// Create auth record for each user so they appear in results
+			createTestAuth(t, user.ID, fmt.Sprintf("user%d@test.com", i), fmt.Sprintf("user%d", i))
 		}
 
 		users, err := service.GetAllUsers()
@@ -466,7 +489,7 @@ func TestUserService_BuildUserUpdates(t *testing.T) {
 }
 
 func TestUserModel_ToResponse(t *testing.T) {
-	t.Run("convert user to response with email", func(t *testing.T) {
+	t.Run("convert user to response with email and username", func(t *testing.T) {
 		profilePic := "http://example.com/pic.jpg"
 		timezone := "America/New_York"
 
@@ -474,14 +497,13 @@ func TestUserModel_ToResponse(t *testing.T) {
 			ID:            1,
 			FirstName:     "John",
 			LastName:      "Doe",
-			Username:      "johndoe",
 			ProfilePicURL: &profilePic,
 			Timezone:      &timezone,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		}
 
-		response := user.ToResponse("john@example.com")
+		response := user.ToResponse("john@example.com", "johndoe")
 
 		assert.Equal(t, uint(1), response.ID)
 		assert.Equal(t, "John", response.FirstName)
@@ -492,18 +514,17 @@ func TestUserModel_ToResponse(t *testing.T) {
 		assert.Equal(t, &timezone, response.Timezone)
 	})
 
-	t.Run("convert user to response without email", func(t *testing.T) {
+	t.Run("convert user to response without email and username", func(t *testing.T) {
 		user := &model.User{
 			ID:        1,
 			FirstName: "John",
 			LastName:  "Doe",
-			Username:  "johndoe",
 		}
 
-		response := user.ToResponse("")
+		response := user.ToResponse("", "")
 
 		assert.Equal(t, "", response.Email)
-		assert.Equal(t, "johndoe", response.Username)
+		assert.Equal(t, "", response.Username)
 	})
 }
 

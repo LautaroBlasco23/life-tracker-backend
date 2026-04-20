@@ -93,11 +93,8 @@ func TestAuthService_Register(t *testing.T) {
 		err = bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password))
 		assert.NoError(t, err)
 
-		// Verify username was stored
-		var user userModel.User
-		err = testDB.First(&user, userID).Error
-		assert.NoError(t, err)
-		assert.Equal(t, "johndoe", user.Username)
+		// Verify username was stored in auth table
+		assert.Equal(t, "johndoe", auth.Username)
 	})
 
 	t.Run("email already exists", func(t *testing.T) {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/model"
@@ -86,7 +85,6 @@ func createTestUser(t *testing.T, firstName, lastName string) uint {
 	user := &userModel.User{
 		FirstName: firstName,
 		LastName:  lastName,
-		Username:  fmt.Sprintf("%s%s%d", firstName, lastName, time.Now().UnixNano()),
 	}
 	err := testDB.Create(user).Error
 	require.NoError(t, err)
@@ -100,6 +98,7 @@ func createTestAuth(t *testing.T, userID uint, email, passwordHash string) *mode
 		UserID:       userID,
 		Email:        email,
 		PasswordHash: passwordHash,
+		Username:     fmt.Sprintf("user%d", userID),
 	}
 	err := testDB.Create(auth).Error
 	require.NoError(t, err)
@@ -139,17 +138,18 @@ func TestAuthRepository_Create(t *testing.T) {
 		// Create second user
 		userID2 := createTestUser(t, "Test", "User2")
 
-		// Try to create auth with duplicate email
+		// Try to create auth with duplicate email but different username
 		auth := &model.Auth{
 			UserID:       userID2,
 			Email:        "duplicate@example.com",
 			PasswordHash: "password456",
+			Username:     fmt.Sprintf("user%d", userID2),
 		}
 
 		err := authRepo.Create(auth)
 
 		assert.Error(t, err)
-		// Should fail due to unique constraint violation
+		// Should fail due to unique constraint violation on email
 	})
 }
 
@@ -293,7 +293,6 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &userModel.User{
 			FirstName: "John",
 			LastName:  "Doe",
-			Username:  "johndoe123",
 		}
 
 		err := userRepo.Create(user)
@@ -308,7 +307,6 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &userModel.User{
 			FirstName: "",
 			LastName:  "Doe",
-			Username:  "nodoe",
 		}
 
 		err := userRepo.Create(user)
@@ -320,7 +318,6 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &userModel.User{
 			FirstName: "John",
 			LastName:  "",
-			Username:  "nojohn",
 		}
 
 		err := userRepo.Create(user)
@@ -328,35 +325,7 @@ func TestUserRepository_Create(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("create user without username fails", func(t *testing.T) {
-		user := &userModel.User{
-			FirstName: "John",
-			LastName:  "Doe",
-			Username:  "",
-		}
 
-		err := userRepo.Create(user)
-
-		assert.Error(t, err)
-	})
-
-	t.Run("create user with duplicate username fails", func(t *testing.T) {
-		user1 := &userModel.User{
-			FirstName: "John",
-			LastName:  "Doe",
-			Username:  "duplicateuser",
-		}
-		err := userRepo.Create(user1)
-		require.NoError(t, err)
-
-		user2 := &userModel.User{
-			FirstName: "Jane",
-			LastName:  "Doe",
-			Username:  "duplicateuser",
-		}
-		err = userRepo.Create(user2)
-		assert.Error(t, err)
-	})
 }
 
 func TestUserRepository_FindByID(t *testing.T) {

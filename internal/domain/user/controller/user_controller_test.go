@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"life-tracker-backend/internal/config"
+	authModel "life-tracker-backend/internal/domain/auth/model"
 	"life-tracker-backend/internal/domain/user/dto"
 	"life-tracker-backend/internal/domain/user/model"
 	"life-tracker-backend/internal/domain/user/service"
@@ -40,7 +40,8 @@ func setupTestRouter(t *testing.T) (*gin.Engine, *service.UserService, func()) {
 	require.NoError(t, err, "Failed to connect to PostgreSQL")
 
 	db.Exec("DROP TABLE IF EXISTS users CASCADE")
-	require.NoError(t, db.AutoMigrate(&model.User{}))
+	db.Exec("DROP TABLE IF EXISTS auths CASCADE")
+	require.NoError(t, db.AutoMigrate(&model.User{}, &authModel.Auth{}))
 
 	userService := service.NewUserService(db, nil)
 	controller := NewUserController(userService)
@@ -64,9 +65,21 @@ func setupTestRouter(t *testing.T) (*gin.Engine, *service.UserService, func()) {
 
 	cleanup := func() {
 		db.Exec("DROP TABLE IF EXISTS users CASCADE")
+		db.Exec("DROP TABLE IF EXISTS auths CASCADE")
 	}
 
 	return router, userService, cleanup
+}
+
+// createTestAuth creates an auth record in the database.
+func createTestAuth(t *testing.T, db *gorm.DB, userID uint, email, username string) {
+	auth := &authModel.Auth{
+		UserID:   userID,
+		Email:    email,
+		Username: username,
+	}
+	err := db.Create(auth).Error
+	require.NoError(t, err)
 }
 
 func createTestUser(t *testing.T, db *gorm.DB, id uint) {
@@ -74,7 +87,6 @@ func createTestUser(t *testing.T, db *gorm.DB, id uint) {
 		ID:        id,
 		FirstName: "Test",
 		LastName:  "User",
-		Username:  fmt.Sprintf("testuser%d%d", id, time.Now().UnixNano()),
 	}
 	err := db.Create(user).Error
 	require.NoError(t, err)
@@ -90,6 +102,7 @@ func TestGetMyProfileHandler(t *testing.T) {
 			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
 		)), &gorm.Config{})
 		createTestUser(t, db, 1)
+		createTestAuth(t, db, 1, "test@example.com", "testuser")
 
 		req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
 		w := httptest.NewRecorder()
@@ -143,6 +156,7 @@ func TestUpdateProfileHandler(t *testing.T) {
 			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
 		)), &gorm.Config{})
 		createTestUser(t, db, 1)
+		createTestAuth(t, db, 1, "test@example.com", "testuser")
 
 		newFirstName := "Updated"
 		updateReq := dto.UpdateUserRequest{
@@ -187,6 +201,7 @@ func TestGetAllUsersHandler(t *testing.T) {
 
 		for i := 1; i <= 3; i++ {
 			createTestUser(t, db, uint(i))
+			createTestAuth(t, db, uint(i), fmt.Sprintf("user%d@test.com", i), fmt.Sprintf("user%d", i))
 		}
 
 		req := httptest.NewRequest(http.MethodGet, "/users", nil)
@@ -212,6 +227,7 @@ func TestGetUserByIDHandler(t *testing.T) {
 			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
 		)), &gorm.Config{})
 		createTestUser(t, db, 1)
+		createTestAuth(t, db, 1, "user1@test.com", "user1")
 
 		req := httptest.NewRequest(http.MethodGet, "/users/1", nil)
 		w := httptest.NewRecorder()
@@ -304,7 +320,8 @@ func setupPublicTestRouter(t *testing.T) (*gin.Engine, func()) {
 	require.NoError(t, err, "Failed to connect to PostgreSQL")
 
 	db.Exec("DROP TABLE IF EXISTS users CASCADE")
-	require.NoError(t, db.AutoMigrate(&model.User{}))
+	db.Exec("DROP TABLE IF EXISTS auths CASCADE")
+	require.NoError(t, db.AutoMigrate(&model.User{}, &authModel.Auth{}))
 
 	userService := service.NewUserService(db, nil)
 	controller := NewUserController(userService)
@@ -316,6 +333,7 @@ func setupPublicTestRouter(t *testing.T) (*gin.Engine, func()) {
 
 	cleanup := func() {
 		db.Exec("DROP TABLE IF EXISTS users CASCADE")
+		db.Exec("DROP TABLE IF EXISTS auths CASCADE")
 	}
 
 	return router, cleanup
@@ -345,14 +363,21 @@ func TestCheckUsernameAvailabilityHandler(t *testing.T) {
 			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
 		)), &gorm.Config{})
 
-		// Create a user with the username
+		// Create a user and auth record with the username
 		user := &model.User{
 			ID:        1,
 			FirstName: "Test",
 			LastName:  "User",
-			Username:  "takenuser",
 		}
 		err := db.Create(user).Error
+		require.NoError(t, err)
+
+		auth := &authModel.Auth{
+			UserID:   1,
+			Email:    "test@example.com",
+			Username: "takenuser",
+		}
+		err = db.Create(auth).Error
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodGet, "/users/check-username?username=takenuser", nil)
@@ -374,14 +399,21 @@ func TestCheckUsernameAvailabilityHandler(t *testing.T) {
 			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
 		)), &gorm.Config{})
 
-		// Create a user with lowercase username
+		// Create a user and auth record with lowercase username
 		user := &model.User{
 			ID:        2,
 			FirstName: "Test",
 			LastName:  "User",
-			Username:  "caseuser",
 		}
 		err := db.Create(user).Error
+		require.NoError(t, err)
+
+		auth := &authModel.Auth{
+			UserID:   2,
+			Email:    "test2@example.com",
+			Username: "caseuser",
+		}
+		err = db.Create(auth).Error
 		require.NoError(t, err)
 
 		// Check with uppercase - should still be taken
