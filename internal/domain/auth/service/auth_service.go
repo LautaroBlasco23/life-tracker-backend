@@ -61,7 +61,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 	}
 
 	// Check if username is already taken
-	usernameExists, err := s.userRepo.UsernameExists(req.Username)
+	usernameExists, err := s.authRepo.UsernameExists(req.Username)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to check username: %w", err)
 	}
@@ -77,7 +77,6 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 	user := &userModel.User{
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Username:  strings.ToLower(req.Username),
 	}
 
 	if err = s.userRepo.Create(user); err != nil {
@@ -86,6 +85,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 
 	auth := &model.Auth{
 		Email:        req.Email,
+		Username:     strings.ToLower(req.Username),
 		PasswordHash: string(hashedPassword),
 		UserID:       user.ID,
 	}
@@ -115,16 +115,8 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, er
 		// Login by email
 		auth, err = s.authRepo.FindByEmail(req.Identifier)
 	} else {
-		// Login by username - first find user, then get auth
-		user, userErr := s.userRepo.FindByUsername(strings.ToLower(req.Identifier))
-		if userErr != nil {
-			if errors.Is(userErr, repository.ErrUserNotFound) {
-				monitoring.AuthAttempts.WithLabelValues("failure").Inc()
-				return nil, 0, errors.New("invalid credentials")
-			}
-			return nil, 0, userErr
-		}
-		auth, err = s.authRepo.FindByUserID(user.ID)
+		// Login by username
+		auth, err = s.authRepo.FindByUsername(strings.ToLower(req.Identifier))
 	}
 
 	if err != nil {

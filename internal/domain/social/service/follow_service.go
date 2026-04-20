@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	authRepo "life-tracker-backend/internal/domain/auth/repository"
 	"life-tracker-backend/internal/domain/social/dto"
 	"life-tracker-backend/internal/domain/social/model"
 	"life-tracker-backend/internal/domain/social/repository"
@@ -16,6 +17,7 @@ import (
 type FollowService struct {
 	followRepo repository.FollowRepository
 	userRepo   userRepo.UserRepository
+	authRepo   authRepo.AuthRepository
 	visibility *VisibilityService
 }
 
@@ -23,12 +25,21 @@ func NewFollowService(db *gorm.DB) *FollowService {
 	return &FollowService{
 		followRepo: repository.NewFollowRepository(db),
 		userRepo:   userRepo.NewUserRepository(db),
+		authRepo:   authRepo.NewAuthRepository(db),
 		visibility: NewVisibilityService(db),
 	}
 }
 
 func (s *FollowService) Follow(followerID uint, targetUsername string) (*dto.FollowResponse, error) {
-	target, err := s.userRepo.FindByUsername(targetUsername)
+	targetAuth, err := s.authRepo.FindByUsername(targetUsername)
+	if err != nil {
+		if errors.Is(err, authRepo.ErrAuthNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to find user")
+	}
+
+	target, err := s.userRepo.FindByID(targetAuth.UserID)
 	if err != nil {
 		if errors.Is(err, userRepo.ErrUserNotFound) {
 			return nil, errors.New("user not found")
@@ -72,11 +83,11 @@ func (s *FollowService) Follow(followerID uint, targetUsername string) (*dto.Fol
 }
 
 func (s *FollowService) Unfollow(followerID uint, targetUsername string) error {
-	target, err := s.userRepo.FindByUsername(targetUsername)
+	targetAuth, err := s.authRepo.FindByUsername(targetUsername)
 	if err != nil {
 		return errors.New("user not found")
 	}
-	err = s.followRepo.Delete(followerID, target.ID)
+	err = s.followRepo.Delete(followerID, targetAuth.UserID)
 	if errors.Is(err, repository.ErrFollowNotFound) {
 		return errors.New("not following this user")
 	}
@@ -94,7 +105,7 @@ func (s *FollowService) GetPendingRequests(followeeID uint) ([]dto.FollowerItem,
 		if err != nil {
 			continue
 		}
-		items = append(items, toFollowerItem(user))
+		items = append(items, s.toFollowerItem(user))
 	}
 	return items, nil
 }
@@ -120,15 +131,15 @@ func (s *FollowService) RejectFollow(followeeID, followerID uint) error {
 }
 
 func (s *FollowService) GetFollowers(viewerID uint, targetUsername string, limit, offset int) ([]dto.FollowerItem, int64, error) {
-	target, err := s.userRepo.FindByUsername(targetUsername)
+	targetAuth, err := s.authRepo.FindByUsername(targetUsername)
 	if err != nil {
 		return nil, 0, errors.New("user not found")
 	}
-	canView, err := s.visibility.CanViewProfile(viewerID, target.ID)
+	canView, err := s.visibility.CanViewProfile(viewerID, targetAuth.UserID)
 	if err != nil || !canView {
 		return nil, 0, errors.New("access denied")
 	}
-	follows, total, err := s.followRepo.FindFollowers(target.ID, limit, offset)
+	follows, total, err := s.followRepo.FindFollowers(targetAuth.UserID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -138,21 +149,21 @@ func (s *FollowService) GetFollowers(viewerID uint, targetUsername string, limit
 		if err != nil {
 			continue
 		}
-		items = append(items, toFollowerItem(user))
+		items = append(items, s.toFollowerItem(user))
 	}
 	return items, total, nil
 }
 
 func (s *FollowService) GetFollowing(viewerID uint, targetUsername string, limit, offset int) ([]dto.FollowerItem, int64, error) {
-	target, err := s.userRepo.FindByUsername(targetUsername)
+	targetAuth, err := s.authRepo.FindByUsername(targetUsername)
 	if err != nil {
 		return nil, 0, errors.New("user not found")
 	}
-	canView, err := s.visibility.CanViewProfile(viewerID, target.ID)
+	canView, err := s.visibility.CanViewProfile(viewerID, targetAuth.UserID)
 	if err != nil || !canView {
 		return nil, 0, errors.New("access denied")
 	}
-	follows, total, err := s.followRepo.FindFollowing(target.ID, limit, offset)
+	follows, total, err := s.followRepo.FindFollowing(targetAuth.UserID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -162,16 +173,23 @@ func (s *FollowService) GetFollowing(viewerID uint, targetUsername string, limit
 		if err != nil {
 			continue
 		}
-		items = append(items, toFollowerItem(user))
+		items = append(items, s.toFollowerItem(user))
 	}
 	return items, total, nil
 }
 
-func toFollowerItem(user *userModel.User) dto.FollowerItem {
+func (s *FollowService) toFollowerItem(user *userModel.User) dto.FollowerItem {
+	// Get username from auth
+	auth, err := s.authRepo.FindByUserID(user.ID)
+	username := ""
+	if err == nil {
+		username = auth.Username
+	}
+
 	return dto.FollowerItem{
 		UserID:    user.ID,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		Username:  user.Username,
+		Username:  username,
 	}
 }

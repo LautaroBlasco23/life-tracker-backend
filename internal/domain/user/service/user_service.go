@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	authRepository "life-tracker-backend/internal/domain/auth/repository"
 	"life-tracker-backend/internal/domain/user/dto"
-	"life-tracker-backend/internal/domain/user/model"
 	"life-tracker-backend/internal/domain/user/repository"
 	"life-tracker-backend/internal/infrastructure/imagestore"
 	"life-tracker-backend/internal/infrastructure/monitoring"
@@ -22,12 +22,14 @@ import (
 
 type UserService struct {
 	repo        repository.UserRepository
+	authRepo    authRepository.AuthRepository
 	imageClient *imagestore.Client
 }
 
 func NewUserService(db *gorm.DB, imageClient *imagestore.Client) *UserService {
 	return &UserService{
 		repo:        repository.NewUserRepository(db),
+		authRepo:    authRepository.NewAuthRepository(db),
 		imageClient: imageClient,
 	}
 }
@@ -40,7 +42,11 @@ func (s *UserService) GetMyProfile(userID uint, email string) (*dto.UserResponse
 		}
 		return nil, errors.New("failed to fetch user")
 	}
-	return user.ToResponse(email), nil
+	auth, err := s.authRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch user auth")
+	}
+	return user.ToResponse(email, auth.Username), nil
 }
 
 func (s *UserService) GetUserByID(userID uint) (*dto.UserResponse, error) {
@@ -51,7 +57,11 @@ func (s *UserService) GetUserByID(userID uint) (*dto.UserResponse, error) {
 		}
 		return nil, errors.New("failed to fetch user")
 	}
-	return user.ToResponse(""), nil
+	auth, err := s.authRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch user auth")
+	}
+	return user.ToResponse(auth.Email, auth.Username), nil
 }
 
 func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
@@ -65,7 +75,7 @@ func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
 	return user.GetTimezoneLocation(), nil
 }
 
-func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
+func (s *UserService) UpdateProfile(userID uint, email string, username string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
@@ -75,7 +85,7 @@ func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUs
 	}
 
 	// Validate username format and uniqueness if being updated
-	if req.Username != nil && *req.Username != user.Username {
+	if req.Username != nil && *req.Username != username {
 		// Validate username format (lowercase letters, digits, underscores only)
 		matched, regexErr := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
 		if regexErr != nil {
@@ -85,18 +95,23 @@ func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUs
 			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
 		}
 
-		exists, existsErr := s.repo.UsernameExists(*req.Username)
+		exists, existsErr := s.authRepo.UsernameExists(*req.Username)
 		if existsErr != nil {
 			return nil, errors.New("failed to check username availability")
 		}
 		if exists {
-			return nil, repository.ErrUsernameTaken
+			return nil, authRepository.ErrUsernameTaken
+		}
+
+		// Update username in auth table
+		if err := s.authRepo.UpdateUsername(userID, strings.ToLower(*req.Username)); err != nil {
+			return nil, errors.New("failed to update username")
 		}
 	}
 
 	updates := buildUserUpdates(req)
-	if len(updates) == 0 {
-		return user.ToResponse(email), nil
+	if len(updates) == 0 && req.Username == nil {
+		return user.ToResponse(email, username), nil
 	}
 
 	if req.Timezone != nil {
@@ -105,8 +120,10 @@ func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUs
 		}
 	}
 
-	if err = s.repo.Update(user, updates); err != nil {
-		return nil, errors.New("failed to update user")
+	if len(updates) > 0 {
+		if err = s.repo.Update(user, updates); err != nil {
+			return nil, errors.New("failed to update user")
+		}
 	}
 
 	user, err = s.repo.FindByID(userID)
@@ -114,7 +131,13 @@ func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUs
 		return nil, errors.New("failed to fetch updated user")
 	}
 
-	return user.ToResponse(email), nil
+	// Get updated username
+	auth, err := s.authRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch user auth")
+	}
+
+	return user.ToResponse(email, auth.Username), nil
 }
 
 func buildUserUpdates(req *dto.UpdateUserRequest) map[string]interface{} {
@@ -124,9 +147,6 @@ func buildUserUpdates(req *dto.UpdateUserRequest) map[string]interface{} {
 	}
 	if req.LastName != nil {
 		updates["last_name"] = *req.LastName
-	}
-	if req.Username != nil {
-		updates["username"] = strings.ToLower(*req.Username)
 	}
 	if req.ProfilePicURL != nil {
 		updates["profile_pic_url"] = *req.ProfilePicURL
@@ -148,7 +168,12 @@ func (s *UserService) GetAllUsers() ([]*dto.UserResponse, error) {
 
 	responses := make([]*dto.UserResponse, 0, len(users))
 	for i := range users {
-		responses = append(responses, users[i].ToResponse(""))
+		// Get auth info for each user to include username
+		auth, authErr := s.authRepo.FindByUserID(users[i].ID)
+		if authErr != nil {
+			continue // Skip users without auth
+		}
+		responses = append(responses, users[i].ToResponse(auth.Email, auth.Username))
 	}
 	return responses, nil
 }
@@ -220,7 +245,13 @@ func (s *UserService) UploadProfileImage(ctx context.Context, userID uint, email
 	if err != nil {
 		return nil, err
 	}
-	return user.ToResponse(email), nil
+
+	auth, err := s.authRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch user auth")
+	}
+
+	return user.ToResponse(auth.Email, auth.Username), nil
 }
 
 func (s *UserService) DeleteProfileImage(ctx context.Context, userID uint) error {
@@ -274,27 +305,64 @@ func validateImageFile(file *multipart.FileHeader) error {
 	return nil
 }
 
-func (s *UserService) SearchUsers(prefix string, limit int) ([]model.User, error) {
-	return s.repo.SearchByUsernamePrefix(prefix, limit)
-}
+func (s *UserService) GetUserByUsername(username string) (*dto.UserResponse, error) {
+	auth, err := s.authRepo.FindByUsername(username)
+	if err != nil {
+		if errors.Is(err, authRepository.ErrAuthNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, errors.New("failed to fetch user")
+	}
 
-func (s *UserService) GetUserByUsername(username string) (*model.User, error) {
-	user, err := s.repo.FindByUsername(username)
+	user, err := s.repo.FindByID(auth.UserID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, errors.New("user not found")
 		}
 		return nil, errors.New("failed to fetch user")
 	}
-	return user, nil
+
+	return user.ToResponse(auth.Email, auth.Username), nil
+}
+
+func (s *UserService) SearchUsers(prefix string, limit int) ([]dto.PublicUserCard, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+
+	auths, err := s.authRepo.SearchByUsernamePrefix(prefix, limit)
+	if err != nil {
+		return nil, errors.New("failed to search users")
+	}
+
+	cards := make([]dto.PublicUserCard, 0, len(auths))
+	for _, auth := range auths {
+		user, err := s.repo.FindByID(auth.UserID)
+		if err != nil {
+			continue // Skip users that can't be found
+		}
+
+		cards = append(cards, dto.PublicUserCard{
+			ID:                   user.ID,
+			FirstName:            user.FirstName,
+			LastName:             user.LastName,
+			Username:             auth.Username,
+			ProfilePicURL:        user.ProfilePicURL,
+			ProfilePrivacyStatus: user.ProfilePrivacyStatus,
+			IsFollowing:          false,
+			FollowStatus:         "none",
+		})
+	}
+
+	return cards, nil
 }
 
 func (s *UserService) UsernameExists(username string) (bool, error) {
-	return s.repo.UsernameExists(username)
+	return s.authRepo.UsernameExists(username)
 }
 
 func (s *UserService) EmailExists(email string) (bool, error) {
-	return s.repo.EmailExists(email)
+	return s.authRepo.EmailExists(email)
 }
 
 func extractImageIDFromURL(url string) string {

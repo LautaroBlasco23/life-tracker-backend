@@ -87,6 +87,14 @@ func (c *UserController) UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
+	// Get username from context if available
+	var username string
+	if value, exists := ctx.Get("username"); exists {
+		if u, ok := value.(string); ok {
+			username = u
+		}
+	}
+
 	var req dto.UpdateUserRequest
 	if err = ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -96,7 +104,7 @@ func (c *UserController) UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userService.UpdateProfile(userID, email, &req)
+	user, err := c.userService.UpdateProfile(userID, email, username, &req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -195,28 +203,18 @@ func (c *UserController) SearchUsers(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters", "details": err.Error()})
 		return
 	}
+
 	limit := query.Limit
 	if limit == 0 {
 		limit = 25
 	}
-	users, err := c.userService.SearchUsers(query.Q, limit)
+
+	cards, err := c.userService.SearchUsers(query.Q, limit)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	cards := make([]dto.PublicUserCard, len(users))
-	for i := range users {
-		cards[i] = dto.PublicUserCard{
-			ID:                   users[i].ID,
-			FirstName:            users[i].FirstName,
-			LastName:             users[i].LastName,
-			Username:             users[i].Username,
-			ProfilePicURL:        users[i].ProfilePicURL,
-			ProfilePrivacyStatus: users[i].ProfilePrivacyStatus,
-			IsFollowing:          false,
-			FollowStatus:         "none",
-		}
-	}
+
 	ctx.JSON(http.StatusOK, gin.H{"data": cards, "count": len(cards)})
 }
 

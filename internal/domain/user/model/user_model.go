@@ -14,7 +14,6 @@ type User struct {
 	ProfilePicURL        *string        `json:"profilePicUrl,omitempty"`
 	ThumbnailURL         *string        `json:"thumbnailUrl,omitempty"`
 	Timezone             *string        `json:"timezone,omitempty" gorm:"size:64"`
-	Username             string         `json:"username" gorm:"size:64;not null;uniqueIndex"`
 	ProfilePrivacyStatus string         `json:"profilePrivacyStatus" gorm:"not null;default:'public';size:20"`
 	DeletedAt            gorm.DeletedAt `json:"-" gorm:"index"`
 	FirstName            string         `json:"firstName" gorm:"not null"`
@@ -22,7 +21,7 @@ type User struct {
 	ID                   uint           `json:"id" gorm:"primaryKey"`
 }
 
-func (u *User) ToResponse(email string) *dto.UserResponse {
+func (u *User) ToResponse(email, username string) *dto.UserResponse {
 	return &dto.UserResponse{
 		ID:                   u.ID,
 		FirstName:            u.FirstName,
@@ -31,7 +30,7 @@ func (u *User) ToResponse(email string) *dto.UserResponse {
 		ProfilePicURL:        u.ProfilePicURL,
 		ThumbnailURL:         u.ThumbnailURL,
 		Timezone:             u.Timezone,
-		Username:             u.Username,
+		Username:             username,
 		ProfilePrivacyStatus: u.ProfilePrivacyStatus,
 		CreatedAt:            u.CreatedAt,
 		UpdatedAt:            u.UpdatedAt,

@@ -75,7 +75,6 @@ func createTestUser(t *testing.T, repo UserRepository) uint {
 	user := &model.User{
 		FirstName: "Test",
 		LastName:  "User",
-		Username:  fmt.Sprintf("testuser%d", time.Now().UnixNano()),
 	}
 	err := repo.Create(user)
 	require.NoError(t, err)
@@ -92,7 +91,6 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &model.User{
 			FirstName: "John",
 			LastName:  "Doe",
-			Username:  "johndoe123",
 		}
 
 		err := repo.Create(user)
@@ -108,7 +106,6 @@ func TestUserRepository_Create(t *testing.T) {
 		require.NoError(t, dbErr)
 		assert.Equal(t, "John", found.FirstName)
 		assert.Equal(t, "Doe", found.LastName)
-		assert.Equal(t, "johndoe123", found.Username)
 	})
 
 	t.Run("create user with all fields", func(t *testing.T) {
@@ -119,7 +116,6 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &model.User{
 			FirstName:     "Jane",
 			LastName:      "Smith",
-			Username:      "janesmith",
 			ProfilePicURL: &profilePic,
 			ThumbnailURL:  &thumbnail,
 			Timezone:      &timezone,
@@ -136,41 +132,12 @@ func TestUserRepository_Create(t *testing.T) {
 		require.NoError(t, dbErr)
 		assert.Equal(t, "Jane", found.FirstName)
 		assert.Equal(t, "Smith", found.LastName)
-		assert.Equal(t, "janesmith", found.Username)
 		assert.Equal(t, &profilePic, found.ProfilePicURL)
 		assert.Equal(t, &thumbnail, found.ThumbnailURL)
 		assert.Equal(t, &timezone, found.Timezone)
 	})
 
-	t.Run("create user without username fails", func(t *testing.T) {
-		user := &model.User{
-			FirstName: "No",
-			LastName:  "Username",
-			Username:  "",
-		}
 
-		err := repo.Create(user)
-
-		assert.Error(t, err)
-	})
-
-	t.Run("create user with duplicate username fails", func(t *testing.T) {
-		user1 := &model.User{
-			FirstName: "First",
-			LastName:  "User",
-			Username:  "uniqueuser123",
-		}
-		err := repo.Create(user1)
-		require.NoError(t, err)
-
-		user2 := &model.User{
-			FirstName: "Second",
-			LastName:  "User",
-			Username:  "uniqueuser123",
-		}
-		err = repo.Create(user2)
-		assert.Error(t, err)
-	})
 }
 
 // UserRepository_FindByID tests the FindByID method of the UserRepository.
@@ -349,9 +316,9 @@ func TestUserRepository_FindAll(t *testing.T) {
 
 	t.Run("find all returns all non-deleted users", func(t *testing.T) {
 		// Create multiple users
-		user1 := &model.User{FirstName: "Alice", LastName: "Smith", Username: "alice123"}
-		user2 := &model.User{FirstName: "Bob", LastName: "Jones", Username: "bob456"}
-		user3 := &model.User{FirstName: "Carol", LastName: "White", Username: "carol789"}
+		user1 := &model.User{FirstName: "Alice", LastName: "Smith"}
+		user2 := &model.User{FirstName: "Bob", LastName: "Jones"}
+		user3 := &model.User{FirstName: "Carol", LastName: "White"}
 
 		require.NoError(t, repo.Create(user1))
 		require.NoError(t, repo.Create(user2))
@@ -375,8 +342,8 @@ func TestUserRepository_FindAll(t *testing.T) {
 	t.Run("find all excludes soft-deleted users", func(t *testing.T) {
 		cleanDatabase(t) // Ensure clean state for this subtest
 
-		user1 := &model.User{FirstName: "Keep", LastName: "Me", Username: "keepme"}
-		user2 := &model.User{FirstName: "Delete", LastName: "Me", Username: "deleteme"}
+		user1 := &model.User{FirstName: "Keep", LastName: "Me"}
+		user2 := &model.User{FirstName: "Delete", LastName: "Me"}
 
 		require.NoError(t, repo.Create(user1))
 		require.NoError(t, repo.Create(user2))
@@ -405,7 +372,7 @@ func TestUserRepository_FindAll(t *testing.T) {
 	t.Run("find all returns empty slice when all users deleted", func(t *testing.T) {
 		cleanDatabase(t) // Ensure clean state for this subtest
 
-		user := &model.User{FirstName: "Gone", LastName: "Soon", Username: "gonesoon"}
+		user := &model.User{FirstName: "Gone", LastName: "Soon"}
 		require.NoError(t, repo.Create(user))
 
 		// Delete all users
@@ -429,7 +396,6 @@ func TestUserRepository_IntegrationWorkflow(t *testing.T) {
 		user := &model.User{
 			FirstName: "Workflow",
 			LastName:  "Test",
-			Username:  "workflowtest",
 		}
 		err := repo.Create(user)
 		require.NoError(t, err)

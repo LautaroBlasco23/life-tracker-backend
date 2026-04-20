@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	ErrUserNotFound  = errors.New("user not found")
-	ErrUsernameTaken = errors.New("username already taken")
+	ErrUserNotFound = errors.New("user not found")
 )
 
 type UserRepository interface {
@@ -19,10 +18,6 @@ type UserRepository interface {
 	Update(user *model.User, updates map[string]interface{}) error
 	Delete(id uint) error
 	FindAll() ([]model.User, error)
-	FindByUsername(username string) (*model.User, error)
-	SearchByUsernamePrefix(prefix string, limit int) ([]model.User, error)
-	UsernameExists(username string) (bool, error)
-	EmailExists(email string) (bool, error)
 }
 
 type GormUserRepository struct {
@@ -34,9 +29,6 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 func (r *GormUserRepository) Create(user *model.User) error {
-	if user.Username == "" {
-		return errors.New("username is required")
-	}
 	return r.db.Create(user).Error
 }
 
@@ -73,49 +65,4 @@ func (r *GormUserRepository) FindAll() ([]model.User, error) {
 		return nil, err
 	}
 	return users, nil
-}
-
-func (r *GormUserRepository) FindByUsername(username string) (*model.User, error) {
-	var user model.User
-	err := r.db.Where("LOWER(username) = LOWER(?) AND deleted_at IS NULL", username).First(&user).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
-	}
-	return &user, nil
-}
-
-func (r *GormUserRepository) SearchByUsernamePrefix(prefix string, limit int) ([]model.User, error) {
-	if limit <= 0 {
-		limit = 25
-	}
-	var users []model.User
-	err := r.db.Where("username ILIKE ? AND deleted_at IS NULL", prefix+"%").Limit(limit).Find(&users).Error
-	return users, err
-}
-
-func (r *GormUserRepository) UsernameExists(username string) (bool, error) {
-	var user model.User
-	err := r.db.Where("LOWER(username) = LOWER(?)", username).First(&user).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-func (r *GormUserRepository) EmailExists(email string) (bool, error) {
-	var user model.User
-	err := r.db.Where("LOWER(email) = LOWER(?)", email).First(&user).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
