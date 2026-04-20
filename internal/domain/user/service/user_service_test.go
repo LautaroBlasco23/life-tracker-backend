@@ -66,6 +66,7 @@ func createTestUser(t *testing.T, service *UserService) uint {
 	user := &model.User{
 		FirstName: "Test",
 		LastName:  "User",
+		Username:  fmt.Sprintf("testuser%d", time.Now().UnixNano()),
 	}
 	err := testDB.Create(user).Error
 	require.NoError(t, err)
@@ -131,6 +132,7 @@ func TestUserService_GetUserTimezone(t *testing.T) {
 			FirstName: "Test",
 			LastName:  "User",
 			Timezone:  &tz,
+			Username:  fmt.Sprintf("tzuser%d", time.Now().UnixNano()),
 		}
 		err := testDB.Create(user).Error
 		require.NoError(t, err)
@@ -163,6 +165,7 @@ func TestUserService_GetUserTimezone(t *testing.T) {
 			FirstName: "Test",
 			LastName:  "User",
 			Timezone:  &invalidTZ,
+			Username:  fmt.Sprintf("badtzuser%d", time.Now().UnixNano()),
 		}
 		err := testDB.Create(user).Error
 		require.NoError(t, err)
@@ -268,6 +271,7 @@ func TestUserService_GetAllUsers(t *testing.T) {
 			user := &model.User{
 				FirstName: fmt.Sprintf("User%d", i),
 				LastName:  "Test",
+				Username:  fmt.Sprintf("alluser%d%d", i, time.Now().UnixNano()),
 			}
 			err := testDB.Create(user).Error
 			require.NoError(t, err)
@@ -470,6 +474,7 @@ func TestUserModel_ToResponse(t *testing.T) {
 			ID:            1,
 			FirstName:     "John",
 			LastName:      "Doe",
+			Username:      "johndoe",
 			ProfilePicURL: &profilePic,
 			Timezone:      &timezone,
 			CreatedAt:     time.Now(),
@@ -482,6 +487,7 @@ func TestUserModel_ToResponse(t *testing.T) {
 		assert.Equal(t, "John", response.FirstName)
 		assert.Equal(t, "Doe", response.LastName)
 		assert.Equal(t, "john@example.com", response.Email)
+		assert.Equal(t, "johndoe", response.Username)
 		assert.Equal(t, &profilePic, response.ProfilePicURL)
 		assert.Equal(t, &timezone, response.Timezone)
 	})
@@ -491,11 +497,13 @@ func TestUserModel_ToResponse(t *testing.T) {
 			ID:        1,
 			FirstName: "John",
 			LastName:  "Doe",
+			Username:  "johndoe",
 		}
 
 		response := user.ToResponse("")
 
 		assert.Equal(t, "", response.Email)
+		assert.Equal(t, "johndoe", response.Username)
 	})
 }
 

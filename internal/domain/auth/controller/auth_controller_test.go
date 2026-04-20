@@ -85,6 +85,7 @@ func TestRegisterHandler(t *testing.T) {
 			Password:  "password123",
 			FirstName: "John",
 			LastName:  "Doe",
+			Username:  "johndoe",
 		}
 		body, _ := json.Marshal(req)
 
@@ -108,6 +109,7 @@ func TestRegisterHandler(t *testing.T) {
 			Password:  "password123",
 			FirstName: "Jane",
 			LastName:  "Doe",
+			Username:  "janedoe",
 		}
 		body, _ := json.Marshal(req)
 
@@ -117,8 +119,17 @@ func TestRegisterHandler(t *testing.T) {
 		router.ServeHTTP(w, httpReq)
 		require.Equal(t, http.StatusCreated, w.Code)
 
+		// Try to register again with the same email (different username)
+		req2 := dto.RegisterRequest{
+			Email:     "duplicate@example.com",
+			Password:  "password123",
+			FirstName: "Jane",
+			LastName:  "Doe",
+			Username:  "janedoe2",
+		}
+		body2, _ := json.Marshal(req2)
 		w = httptest.NewRecorder()
-		httpReq = httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewBuffer(body))
+		httpReq = httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewBuffer(body2))
 		httpReq.Header.Set("Content-Type", "application/json")
 		router.ServeHTTP(w, httpReq)
 
@@ -147,14 +158,36 @@ func TestLoginHandler(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Login",
 		LastName:  "Test",
+		Username:  "logintest",
 	}
 	_, _, err := authService.Register(registerReq)
 	require.NoError(t, err)
 
-	t.Run("successful login", func(t *testing.T) {
+	t.Run("successful login with email", func(t *testing.T) {
 		req := dto.LoginRequest{
-			Email:    "login@example.com",
-			Password: "password123",
+			Identifier: "login@example.com",
+			Password:   "password123",
+		}
+		body, _ := json.Marshal(req)
+
+		httpReq := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
+		httpReq.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, httpReq)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var resp map[string]interface{}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		assert.Equal(t, "Login successful", resp["message"])
+		assert.NotNil(t, resp["data"])
+	})
+
+	t.Run("successful login with username", func(t *testing.T) {
+		req := dto.LoginRequest{
+			Identifier: "logintest",
+			Password:   "password123",
 		}
 		body, _ := json.Marshal(req)
 
@@ -174,8 +207,8 @@ func TestLoginHandler(t *testing.T) {
 
 	t.Run("invalid credentials", func(t *testing.T) {
 		req := dto.LoginRequest{
-			Email:    "login@example.com",
-			Password: "wrongpassword",
+			Identifier: "login@example.com",
+			Password:   "wrongpassword",
 		}
 		body, _ := json.Marshal(req)
 
@@ -198,6 +231,7 @@ func TestRefreshTokenHandler(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Refresh",
 		LastName:  "Test",
+		Username:  "refreshtest",
 	}
 	tokens, _, err := authService.Register(registerReq)
 	require.NoError(t, err)
@@ -246,6 +280,7 @@ func TestUpdatePasswordHandler(t *testing.T) {
 		Password:  "oldpassword",
 		FirstName: "Password",
 		LastName:  "Test",
+		Username:  "passwordtest",
 	}
 	_, _, err := authService.Register(registerReq)
 	require.NoError(t, err)
@@ -296,6 +331,7 @@ func TestUpdateEmailHandler(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Email",
 		LastName:  "Test",
+		Username:  "emailtest",
 	}
 	_, _, err := authService.Register(registerReq)
 	require.NoError(t, err)
@@ -327,6 +363,7 @@ func TestUpdateEmailHandler(t *testing.T) {
 			Password:  "password123",
 			FirstName: "Other",
 			LastName:  "User",
+			Username:  "existinguser",
 		}
 		_, _, err := authService.Register(otherReq)
 		require.NoError(t, err)

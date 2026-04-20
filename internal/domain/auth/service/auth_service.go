@@ -3,6 +3,8 @@ package service
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"life-tracker-backend/internal/config"
@@ -40,6 +42,15 @@ func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
 }
 
 func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, uint, error) {
+	// Validate username format (lowercase letters, digits, underscores only)
+	matched, err := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(req.Username))
+	if err != nil {
+		return nil, 0, errors.New("failed to validate username")
+	}
+	if !matched {
+		return nil, 0, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
+	}
+
 	exists, err := s.authRepo.EmailExists(req.Email)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to check email: %w", err)
@@ -47,6 +58,15 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 	if exists {
 		monitoring.AuthAttempts.WithLabelValues("failure").Inc()
 		return nil, 0, errors.New("user already exists")
+	}
+
+	// Check if username is already taken
+	usernameExists, err := s.userRepo.UsernameExists(req.Username)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to check username: %w", err)
+	}
+	if usernameExists {
+		return nil, 0, errors.New("username already taken")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -57,6 +77,7 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 	user := &userModel.User{
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
+		Username:  strings.ToLower(req.Username),
 	}
 
 	if err = s.userRepo.Create(user); err != nil {
@@ -86,7 +107,26 @@ func (s *AuthService) Register(req *dto.RegisterRequest) (*dto.TokenResponse, ui
 }
 
 func (s *AuthService) Login(req *dto.LoginRequest) (*dto.TokenResponse, uint, error) {
-	auth, err := s.authRepo.FindByEmail(req.Email)
+	var auth *model.Auth
+	var err error
+
+	// Check if identifier is an email or username
+	if strings.Contains(req.Identifier, "@") {
+		// Login by email
+		auth, err = s.authRepo.FindByEmail(req.Identifier)
+	} else {
+		// Login by username - first find user, then get auth
+		user, userErr := s.userRepo.FindByUsername(strings.ToLower(req.Identifier))
+		if userErr != nil {
+			if errors.Is(userErr, repository.ErrUserNotFound) {
+				monitoring.AuthAttempts.WithLabelValues("failure").Inc()
+				return nil, 0, errors.New("invalid credentials")
+			}
+			return nil, 0, userErr
+		}
+		auth, err = s.authRepo.FindByUserID(user.ID)
+	}
+
 	if err != nil {
 		if errors.Is(err, repository.ErrAuthNotFound) {
 			monitoring.AuthAttempts.WithLabelValues("failure").Inc()

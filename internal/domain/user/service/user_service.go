@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -66,16 +65,6 @@ func (s *UserService) GetUserTimezone(userID uint) (*time.Location, error) {
 }
 
 func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
-	if req.Username != nil {
-		matched, err := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
-		if err != nil {
-			return nil, errors.New("failed to validate username")
-		}
-		if !matched {
-			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
-		}
-	}
-
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
@@ -120,9 +109,6 @@ func buildUserUpdates(req *dto.UpdateUserRequest) map[string]interface{} {
 	}
 	if req.Timezone != nil {
 		updates["timezone"] = *req.Timezone
-	}
-	if req.Username != nil {
-		updates["username"] = strings.ToLower(*req.Username)
 	}
 	if req.ProfilePrivacyStatus != nil {
 		updates["profile_privacy_status"] = *req.ProfilePrivacyStatus

@@ -14,7 +14,7 @@ type User struct {
 	ProfilePicURL        *string        `json:"profilePicUrl,omitempty"`
 	ThumbnailURL         *string        `json:"thumbnailUrl,omitempty"`
 	Timezone             *string        `json:"timezone,omitempty" gorm:"size:64"`
-	Username             *string        `json:"username,omitempty" gorm:"size:64;uniqueIndex"`
+	Username             string         `json:"username" gorm:"size:64;not null;uniqueIndex"`
 	ProfilePrivacyStatus string         `json:"profilePrivacyStatus" gorm:"not null;default:'public';size:20"`
 	DeletedAt            gorm.DeletedAt `json:"-" gorm:"index"`
 	FirstName            string         `json:"firstName" gorm:"not null"`

@@ -27,6 +27,8 @@ type AuthRepository interface {
 type UserRepository interface {
 	Create(user *userModel.User) error
 	FindByID(id uint) (*userModel.User, error)
+	FindByUsername(username string) (*userModel.User, error)
+	UsernameExists(username string) (bool, error)
 }
 
 type GormAuthRepository struct {
@@ -93,6 +95,30 @@ func (r *GormUserRepository) FindByID(id uint) (*userModel.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *GormUserRepository) FindByUsername(username string) (*userModel.User, error) {
+	var user userModel.User
+	err := r.db.Where("LOWER(username) = LOWER(?) AND deleted_at IS NULL", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *GormUserRepository) UsernameExists(username string) (bool, error) {
+	var user userModel.User
+	err := r.db.Where("LOWER(username) = LOWER(?)", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *GormAuthRepository) FindByUserID(userID uint) (*model.Auth, error) {

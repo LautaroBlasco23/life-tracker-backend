@@ -73,6 +73,7 @@ func TestAuthService_Register(t *testing.T) {
 			Password:  "password123",
 			FirstName: "John",
 			LastName:  "Doe",
+			Username:  "johndoe",
 		}
 
 		tokens, userID, err := service.Register(req)
@@ -91,6 +92,12 @@ func TestAuthService_Register(t *testing.T) {
 
 		err = bcrypt.CompareHashAndPassword([]byte(auth.PasswordHash), []byte(req.Password))
 		assert.NoError(t, err)
+
+		// Verify username was stored
+		var user userModel.User
+		err = testDB.First(&user, userID).Error
+		assert.NoError(t, err)
+		assert.Equal(t, "johndoe", user.Username)
 	})
 
 	t.Run("email already exists", func(t *testing.T) {
@@ -99,6 +106,7 @@ func TestAuthService_Register(t *testing.T) {
 			Password:  "password123",
 			FirstName: "Jane",
 			LastName:  "Doe",
+			Username:  "janedoe",
 		}
 
 		_, _, err := service.Register(req)
@@ -111,6 +119,67 @@ func TestAuthService_Register(t *testing.T) {
 		assert.Zero(t, userID)
 		assert.Contains(t, err.Error(), "user already exists")
 	})
+
+	t.Run("username already taken", func(t *testing.T) {
+		// First registration with a username
+		req1 := &dto.RegisterRequest{
+			Email:     "user1@example.com",
+			Password:  "password123",
+			FirstName: "User",
+			LastName:  "One",
+			Username:  "uniqueuser",
+		}
+		_, _, err := service.Register(req1)
+		require.NoError(t, err)
+
+		// Second registration with same username but different email
+		req2 := &dto.RegisterRequest{
+			Email:     "user2@example.com",
+			Password:  "password123",
+			FirstName: "User",
+			LastName:  "Two",
+			Username:  "uniqueuser",
+		}
+		tokens, userID, err := service.Register(req2)
+
+		assert.Error(t, err)
+		assert.Nil(t, tokens)
+		assert.Zero(t, userID)
+		assert.Contains(t, err.Error(), "username already taken")
+	})
+
+	t.Run("invalid username format", func(t *testing.T) {
+		req := &dto.RegisterRequest{
+			Email:     "testuser@example.com",
+			Password:  "password123",
+			FirstName: "Test",
+			LastName:  "User",
+			Username:  "Invalid-User!",
+		}
+
+		tokens, userID, err := service.Register(req)
+
+		assert.Error(t, err)
+		assert.Nil(t, tokens)
+		assert.Zero(t, userID)
+		assert.Contains(t, err.Error(), "username must be 3-30 characters: lowercase letters, digits, underscores only")
+	})
+
+	t.Run("username too short", func(t *testing.T) {
+		req := &dto.RegisterRequest{
+			Email:     "testuser@example.com",
+			Password:  "password123",
+			FirstName: "Test",
+			LastName:  "User",
+			Username:  "ab",
+		}
+
+		tokens, userID, err := service.Register(req)
+
+		assert.Error(t, err)
+		assert.Nil(t, tokens)
+		assert.Zero(t, userID)
+	})
 }
 
 func TestAuthService_Login(t *testing.T) {
@@ -121,14 +190,15 @@ func TestAuthService_Login(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Test",
 		LastName:  "User",
+		Username:  "testuser",
 	}
 	_, expectedUserID, err := service.Register(registerReq)
 	require.NoError(t, err)
 
-	t.Run("successful login", func(t *testing.T) {
+	t.Run("successful login with email", func(t *testing.T) {
 		req := &dto.LoginRequest{
-			Email:    "login@example.com",
-			Password: "password123",
+			Identifier: "login@example.com",
+			Password:   "password123",
 		}
 
 		tokens, userID, err := service.Login(req)
@@ -140,10 +210,40 @@ func TestAuthService_Login(t *testing.T) {
 		assert.NotEmpty(t, tokens.RefreshToken)
 	})
 
-	t.Run("user not found", func(t *testing.T) {
+	t.Run("successful login with username", func(t *testing.T) {
 		req := &dto.LoginRequest{
-			Email:    "nonexistent@example.com",
-			Password: "password123",
+			Identifier: "testuser",
+			Password:   "password123",
+		}
+
+		tokens, userID, err := service.Login(req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, tokens)
+		assert.Equal(t, expectedUserID, userID)
+		assert.NotEmpty(t, tokens.AccessToken)
+		assert.NotEmpty(t, tokens.RefreshToken)
+	})
+
+	t.Run("successful login with username (case insensitive)", func(t *testing.T) {
+		req := &dto.LoginRequest{
+			Identifier: "TESTUSER",
+			Password:   "password123",
+		}
+
+		tokens, userID, err := service.Login(req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, tokens)
+		assert.Equal(t, expectedUserID, userID)
+		assert.NotEmpty(t, tokens.AccessToken)
+		assert.NotEmpty(t, tokens.RefreshToken)
+	})
+
+	t.Run("user not found by email", func(t *testing.T) {
+		req := &dto.LoginRequest{
+			Identifier: "nonexistent@example.com",
+			Password:   "password123",
 		}
 
 		tokens, userID, err := service.Login(req)
@@ -154,10 +254,38 @@ func TestAuthService_Login(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid credentials")
 	})
 
-	t.Run("incorrect password", func(t *testing.T) {
+	t.Run("user not found by username", func(t *testing.T) {
 		req := &dto.LoginRequest{
-			Email:    "login@example.com",
-			Password: "wrongpassword",
+			Identifier: "nonexistentuser",
+			Password:   "password123",
+		}
+
+		tokens, userID, err := service.Login(req)
+
+		assert.Error(t, err)
+		assert.Nil(t, tokens)
+		assert.Zero(t, userID)
+		assert.Contains(t, err.Error(), "invalid credentials")
+	})
+
+	t.Run("incorrect password with email", func(t *testing.T) {
+		req := &dto.LoginRequest{
+			Identifier: "login@example.com",
+			Password:   "wrongpassword",
+		}
+
+		tokens, userID, err := service.Login(req)
+
+		assert.Error(t, err)
+		assert.Nil(t, tokens)
+		assert.Zero(t, userID)
+		assert.Contains(t, err.Error(), "invalid credentials")
+	})
+
+	t.Run("incorrect password with username", func(t *testing.T) {
+		req := &dto.LoginRequest{
+			Identifier: "testuser",
+			Password:   "wrongpassword",
 		}
 
 		tokens, userID, err := service.Login(req)
@@ -177,6 +305,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Refresh",
 		LastName:  "Test",
+		Username:  "refreshtest",
 	}
 	tokens, _, err := service.Register(registerReq)
 	require.NoError(t, err)
@@ -236,6 +365,7 @@ func TestAuthService_UpdatePassword(t *testing.T) {
 		Password:  "oldpassword",
 		FirstName: "Password",
 		LastName:  "Test",
+		Username:  "passwordtest",
 	}
 	_, userID, err := service.Register(registerReq)
 	require.NoError(t, err)
@@ -289,6 +419,7 @@ func TestAuthService_UpdateEmail(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Email",
 		LastName:  "Test",
+		Username:  "emailtest",
 	}
 	_, userID, err := service.Register(registerReq)
 	require.NoError(t, err)
@@ -343,6 +474,7 @@ func TestAuthService_UpdateEmail(t *testing.T) {
 			Password:  "password123",
 			FirstName: "Other",
 			LastName:  "User",
+			Username:  "existinguser",
 		}
 		_, _, err := service.Register(otherReq)
 		require.NoError(t, err)

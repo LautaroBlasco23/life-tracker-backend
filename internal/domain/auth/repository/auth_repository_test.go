@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/auth/model"
@@ -85,6 +86,7 @@ func createTestUser(t *testing.T, firstName, lastName string) uint {
 	user := &userModel.User{
 		FirstName: firstName,
 		LastName:  lastName,
+		Username:  fmt.Sprintf("%s%s%d", firstName, lastName, time.Now().UnixNano()),
 	}
 	err := testDB.Create(user).Error
 	require.NoError(t, err)
@@ -291,6 +293,7 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &userModel.User{
 			FirstName: "John",
 			LastName:  "Doe",
+			Username:  "johndoe123",
 		}
 
 		err := userRepo.Create(user)
@@ -305,6 +308,7 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &userModel.User{
 			FirstName: "",
 			LastName:  "Doe",
+			Username:  "nodoe",
 		}
 
 		err := userRepo.Create(user)
@@ -316,10 +320,41 @@ func TestUserRepository_Create(t *testing.T) {
 		user := &userModel.User{
 			FirstName: "John",
 			LastName:  "",
+			Username:  "nojohn",
 		}
 
 		err := userRepo.Create(user)
 
+		assert.Error(t, err)
+	})
+
+	t.Run("create user without username fails", func(t *testing.T) {
+		user := &userModel.User{
+			FirstName: "John",
+			LastName:  "Doe",
+			Username:  "",
+		}
+
+		err := userRepo.Create(user)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("create user with duplicate username fails", func(t *testing.T) {
+		user1 := &userModel.User{
+			FirstName: "John",
+			LastName:  "Doe",
+			Username:  "duplicateuser",
+		}
+		err := userRepo.Create(user1)
+		require.NoError(t, err)
+
+		user2 := &userModel.User{
+			FirstName: "Jane",
+			LastName:  "Doe",
+			Username:  "duplicateuser",
+		}
+		err = userRepo.Create(user2)
 		assert.Error(t, err)
 	})
 }

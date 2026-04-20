@@ -16,7 +16,6 @@ type UpdateUserRequest struct {
 	LastName             *string `json:"lastName,omitempty" binding:"omitempty,min=2,max=50"`
 	ProfilePicURL        *string `json:"profilePicUrl,omitempty"`
 	Timezone             *string `json:"timezone,omitempty" binding:"omitempty,timezone"`
-	Username             *string `json:"username,omitempty" binding:"omitempty,min=3,max=30"`
 	ProfilePrivacyStatus *string `json:"profilePrivacyStatus,omitempty" binding:"omitempty,oneof=public private"`
 }
 
@@ -26,7 +25,7 @@ type UserResponse struct {
 	ProfilePicURL        *string   `json:"profilePicUrl,omitempty"`
 	ThumbnailURL         *string   `json:"thumbnailUrl,omitempty"`
 	Timezone             *string   `json:"timezone,omitempty"`
-	Username             *string   `json:"username,omitempty"`
+	Username             string    `json:"username"`
 	FirstName            string    `json:"firstName"`
 	LastName             string    `json:"lastName"`
 	Email                string    `json:"email"`
@@ -36,7 +35,7 @@ type UserResponse struct {
 
 type PublicUserCard struct {
 	ProfilePicURL        *string `json:"profilePicUrl,omitempty"`
-	Username             *string `json:"username,omitempty"`
+	Username             string  `json:"username"`
 	FirstName            string  `json:"firstName"`
 	LastName             string  `json:"lastName"`
 	ProfilePrivacyStatus string  `json:"profilePrivacyStatus"`

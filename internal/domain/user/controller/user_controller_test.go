@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"life-tracker-backend/internal/config"
 	"life-tracker-backend/internal/domain/user/dto"
@@ -73,6 +74,7 @@ func createTestUser(t *testing.T, db *gorm.DB, id uint) {
 		ID:        id,
 		FirstName: "Test",
 		LastName:  "User",
+		Username:  fmt.Sprintf("testuser%d%d", id, time.Now().UnixNano()),
 	}
 	err := db.Create(user).Error
 	require.NoError(t, err)

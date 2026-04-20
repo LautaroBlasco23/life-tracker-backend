@@ -17,8 +17,8 @@ type SubscriptionResponse struct {
 }
 
 type FollowerItem struct {
-	Username  *string `json:"username,omitempty"`
-	FirstName string  `json:"firstName"`
-	LastName  string  `json:"lastName"`
-	UserID    uint    `json:"userId"`
+	Username  string `json:"username"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	UserID    uint   `json:"userId"`
 }
