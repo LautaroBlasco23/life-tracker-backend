@@ -21,6 +21,7 @@ type UserRepository interface {
 	FindAll() ([]model.User, error)
 	FindByUsername(username string) (*model.User, error)
 	SearchByUsernamePrefix(prefix string, limit int) ([]model.User, error)
+	UsernameExists(username string) (bool, error)
 }
 
 type GormUserRepository struct {
@@ -89,4 +90,16 @@ func (r *GormUserRepository) SearchByUsernamePrefix(prefix string, limit int) ([
 	var users []model.User
 	err := r.db.Where("username ILIKE ? AND deleted_at IS NULL", prefix+"%").Limit(limit).Find(&users).Error
 	return users, err
+}
+
+func (r *GormUserRepository) UsernameExists(username string) (bool, error) {
+	var user model.User
+	err := r.db.Where("LOWER(username) = LOWER(?)", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

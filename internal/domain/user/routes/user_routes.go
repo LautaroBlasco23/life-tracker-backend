@@ -26,3 +26,13 @@ func RegisterUserRoutes(router *gin.RouterGroup, db *gorm.DB, imageClient *image
 		userGroup.DELETE("/:id", userController.DeleteUser)
 	}
 }
+
+func RegisterPublicUserRoutes(router *gin.RouterGroup, db *gorm.DB, imageClient *imagestore.Client) {
+	userService := service.NewUserService(db, imageClient)
+	userController := controller.NewUserController(userService)
+
+	userGroup := router.Group("/users")
+	{
+		userGroup.GET("/check-username", userController.CheckUsernameAvailability)
+	}
+}

@@ -293,3 +293,120 @@ func TestUnauthorizedAccess(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 }
+
+func setupPublicTestRouter(t *testing.T) (*gin.Engine, func()) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
+	)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	require.NoError(t, err, "Failed to connect to PostgreSQL")
+
+	db.Exec("DROP TABLE IF EXISTS users CASCADE")
+	require.NoError(t, db.AutoMigrate(&model.User{}))
+
+	userService := service.NewUserService(db, nil)
+	controller := NewUserController(userService)
+
+	router := gin.New()
+
+	// Public route - no auth middleware
+	router.GET("/users/check-username", controller.CheckUsernameAvailability)
+
+	cleanup := func() {
+		db.Exec("DROP TABLE IF EXISTS users CASCADE")
+	}
+
+	return router, cleanup
+}
+
+func TestCheckUsernameAvailabilityHandler(t *testing.T) {
+	router, cleanup := setupPublicTestRouter(t)
+	defer cleanup()
+
+	t.Run("username is available", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/users/check-username?username=newuser123", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var resp map[string]interface{}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		assert.Equal(t, true, resp["available"])
+		assert.Equal(t, "newuser123", resp["username"])
+	})
+
+	t.Run("username is taken", func(t *testing.T) {
+		db, _ := gorm.Open(postgres.Open(fmt.Sprintf(
+			"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
+		)), &gorm.Config{})
+
+		// Create a user with the username
+		user := &model.User{
+			ID:        1,
+			FirstName: "Test",
+			LastName:  "User",
+			Username:  "takenuser",
+		}
+		err := db.Create(user).Error
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodGet, "/users/check-username?username=takenuser", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var resp map[string]interface{}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		assert.Equal(t, false, resp["available"])
+		assert.Equal(t, "takenuser", resp["username"])
+	})
+
+	t.Run("username is taken - case insensitive check", func(t *testing.T) {
+		db, _ := gorm.Open(postgres.Open(fmt.Sprintf(
+			"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
+		)), &gorm.Config{})
+
+		// Create a user with lowercase username
+		user := &model.User{
+			ID:        2,
+			FirstName: "Test",
+			LastName:  "User",
+			Username:  "caseuser",
+		}
+		err := db.Create(user).Error
+		require.NoError(t, err)
+
+		// Check with uppercase - should still be taken
+		req := httptest.NewRequest(http.MethodGet, "/users/check-username?username=CASEUSER", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var resp map[string]interface{}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		assert.Equal(t, false, resp["available"])
+	})
+
+	t.Run("missing username parameter", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/users/check-username", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var resp map[string]interface{}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		assert.Contains(t, resp["error"], "required")
+	})
+}

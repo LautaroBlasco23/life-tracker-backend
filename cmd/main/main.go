@@ -112,6 +112,9 @@ func run() error {
 		// Auth routes (public)
 		authRoutes.RegisterAuthRoutes(api, dbs.PostgreSQL, cfg, imageClient)
 
+		// Public user routes (no auth required)
+		userRoutes.RegisterPublicUserRoutes(api, dbs.PostgreSQL, imageClient)
+
 		// Protected routes
 		protected := api.Group("")
 		protected.Use(middleware.JWTAuthMiddleware(cfg.JWTSecret))

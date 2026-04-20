@@ -14,6 +14,7 @@ type CreateUserRequest struct {
 type UpdateUserRequest struct {
 	FirstName            *string `json:"firstName,omitempty" binding:"omitempty,min=2,max=50"`
 	LastName             *string `json:"lastName,omitempty" binding:"omitempty,min=2,max=50"`
+	Username             *string `json:"username,omitempty" binding:"omitempty,min=3,max=30"`
 	ProfilePicURL        *string `json:"profilePicUrl,omitempty"`
 	Timezone             *string `json:"timezone,omitempty" binding:"omitempty,timezone"`
 	ProfilePrivacyStatus *string `json:"profilePrivacyStatus,omitempty" binding:"omitempty,oneof=public private"`

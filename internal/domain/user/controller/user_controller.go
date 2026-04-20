@@ -263,3 +263,22 @@ func (c *UserController) DeleteProfileImage(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Profile image deleted successfully"})
 }
+
+func (c *UserController) CheckUsernameAvailability(ctx *gin.Context) {
+	username := ctx.Query("username")
+	if username == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "username query parameter is required"})
+		return
+	}
+
+	exists, err := c.userService.UsernameExists(username)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check username availability"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"available": !exists,
+		"username":  username,
+	})
+}

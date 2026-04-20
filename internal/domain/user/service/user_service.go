@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -73,6 +74,26 @@ func (s *UserService) UpdateProfile(userID uint, email string, req *dto.UpdateUs
 		return nil, errors.New("failed to fetch user")
 	}
 
+	// Validate username format and uniqueness if being updated
+	if req.Username != nil && *req.Username != user.Username {
+		// Validate username format (lowercase letters, digits, underscores only)
+		matched, err := regexp.MatchString(`^[a-z0-9_]{3,30}$`, strings.ToLower(*req.Username))
+		if err != nil {
+			return nil, errors.New("failed to validate username")
+		}
+		if !matched {
+			return nil, errors.New("username must be 3-30 characters: lowercase letters, digits, underscores only")
+		}
+
+		exists, err := s.repo.UsernameExists(*req.Username)
+		if err != nil {
+			return nil, errors.New("failed to check username availability")
+		}
+		if exists {
+			return nil, repository.ErrUsernameTaken
+		}
+	}
+
 	updates := buildUserUpdates(req)
 	if len(updates) == 0 {
 		return user.ToResponse(email), nil
@@ -103,6 +124,9 @@ func buildUserUpdates(req *dto.UpdateUserRequest) map[string]interface{} {
 	}
 	if req.LastName != nil {
 		updates["last_name"] = *req.LastName
+	}
+	if req.Username != nil {
+		updates["username"] = strings.ToLower(*req.Username)
 	}
 	if req.ProfilePicURL != nil {
 		updates["profile_pic_url"] = *req.ProfilePicURL
@@ -263,6 +287,10 @@ func (s *UserService) GetUserByUsername(username string) (*model.User, error) {
 		return nil, errors.New("failed to fetch user")
 	}
 	return user, nil
+}
+
+func (s *UserService) UsernameExists(username string) (bool, error) {
+	return s.repo.UsernameExists(username)
 }
 
 func extractImageIDFromURL(url string) string {
