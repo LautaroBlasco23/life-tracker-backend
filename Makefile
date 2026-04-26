@@ -1,4 +1,4 @@
-.PHONY: help setup start install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only hooks
+.PHONY: help setup start install-tools code-check dev docker-up docker-down docker-build db-up db-down db-remove db-test-up db-test-down db-test-remove test test-only hooks monitoring-up monitoring-down
 
 .DEFAULT_GOAL := help
 
@@ -19,6 +19,10 @@ help:
 	@echo "    docker-up          - Start all services"
 	@echo "    docker-down        - Stop services"
 	@echo "    docker-build       - Build API image"
+	@echo ""
+	@echo "  📊 Monitoring:"
+	@echo "    monitoring-up      - Start Prometheus and Grafana"
+	@echo "    monitoring-down    - Stop monitoring services"
 	@echo ""
 	@echo "  🗄️  Database (Development):"
 	@echo "    db-up              - Start development databases"
@@ -102,3 +106,9 @@ test-only:
 hooks:
 	git config core.hooksPath .githooks
 	chmod +x .githooks/*
+
+monitoring-up:
+	docker compose up -d prometheus grafana node-exporter
+
+monitoring-down:
+	docker compose stop prometheus grafana node-exporter

@@ -1,0 +1,235 @@
+{
+  "uid": "lifetracker-time",
+  "title": "LifeTracker - Time",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1m",
+  "style": "dark",
+  "tags": [
+    "lifetracker",
+    "time",
+    "tracking"
+  ],
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Time Records",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(lifetracker_time_records_created_total)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Minutes Tracked",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "minutes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "lifetracker_total_time_tracked_minutes",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Avg Minutes per Record",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "minutes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "lifetracker_total_time_tracked_minutes / sum(lifetracker_time_records_created_total)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Time Records Created (per hour)",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "increase(lifetracker_time_records_created_total[$__interval])",
+          "legendFormat": "{{category}}",
+          "refId": "A",
+          "interval": "1h"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "piechart",
+      "title": "Time by Category",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by(category) (lifetracker_time_tracked_by_category_minutes)",
+          "legendFormat": "{{category}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Minutes Tracked Over Time",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "increase(lifetracker_total_time_tracked_minutes[$__interval])",
+          "refId": "A",
+          "interval": "1h"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Time Record Duration Distribution",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by(le) (lifetracker_time_record_duration_minutes_bucket))",
+          "legendFormat": "Median",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by(le) (lifetracker_time_record_duration_minutes_bucket))",
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by(le) (lifetracker_time_record_duration_minutes_bucket))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Time Record Operations",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "increase(lifetracker_time_records_updated_total[$__interval])",
+          "legendFormat": "Updated",
+          "refId": "A",
+          "interval": "1h"
+        },
+        {
+          "expr": "increase(lifetracker_time_records_deleted_total[$__interval])",
+          "legendFormat": "Deleted",
+          "refId": "B",
+          "interval": "1h"
+        }
+      ]
+    }
+  ]
+}
